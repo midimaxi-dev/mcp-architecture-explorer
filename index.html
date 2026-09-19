@@ -21,6 +21,7 @@
       <span>MCP <strong>Flow Atlas</strong></span>
     </a>
     <nav aria-label="Page navigation">
+      <a href="#overview">Overview</a>
       <a href="#onboard">Onboard</a>
       <a href="#architecture">Architecture</a>
       <a href="#explorer">Lifecycle</a>
@@ -45,6 +46,42 @@
         <div><strong>JSON-RPC 2.0</strong><span>Message envelope</span></div>
         <div><strong id="heroProtocol">MCP 2025-06-18</strong><span>Selected protocol version</span></div>
         <div><strong>Entra protected</strong><span>Tokens stay outside JSON-RPC</span></div>
+      </div>
+    </section>
+
+    <section class="overview section-shell" id="overview" aria-labelledby="overview-title">
+      <div class="section-heading">
+        <div><span class="kicker">Protocol overview</span><h2 id="overview-title">Three primitives. Three kinds of context.</h2></div>
+        <p>MCP servers expose tools, resources, and prompts through standard JSON-RPC methods. The host decides how each primitive is discovered, presented, approved, and used.</p>
+      </div>
+      <div class="primitive-grid">
+        <article class="primitive-card primitive-tool">
+          <div class="primitive-topline"><span class="primitive-icon" aria-hidden="true">T</span><span class="primitive-control">Model-controlled</span></div>
+          <h3>Tools</h3>
+          <p>Executable operations that let a model query a system or perform an action, subject to host approval and server authorization.</p>
+          <div class="primitive-example">
+            <span class="mini-label">Example · look up inventory</span>
+            <code><span>tools/call</span> → inventory.lookup({ sku: "MCP-2048" })</code>
+          </div>
+        </article>
+        <article class="primitive-card primitive-resource">
+          <div class="primitive-topline"><span class="primitive-icon" aria-hidden="true">R</span><span class="primitive-control">Application-controlled</span></div>
+          <h3>Resources</h3>
+          <p>Addressable data that applications can discover, read, or subscribe to and then include in model context when relevant.</p>
+          <div class="primitive-example">
+            <span class="mini-label">Example · read a catalog record</span>
+            <code><span>resources/read</span> → inventory://catalog/MCP-2048</code>
+          </div>
+        </article>
+        <article class="primitive-card primitive-prompt">
+          <div class="primitive-topline"><span class="primitive-icon" aria-hidden="true">P</span><span class="primitive-control">User-controlled</span></div>
+          <h3>Prompts</h3>
+          <p>Reusable, parameterized message templates that users explicitly select to start a consistent workflow.</p>
+          <div class="primitive-example">
+            <span class="mini-label">Example · prepare a stock review</span>
+            <code><span>prompts/get</span> → review-stock({ region: "east" })</code>
+          </div>
+        </article>
       </div>
     </section>
 
