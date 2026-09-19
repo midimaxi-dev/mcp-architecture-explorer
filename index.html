@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="An interactive, step-by-step explorer for Model Context Protocol architecture, transport, identity, and payloads.">
+  <title>MCP Flow Atlas</title>
+  <link rel="icon" href="assets/mcp-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="assets/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#explorer">Skip to lifecycle explorer</a>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="MCP Flow Atlas home">
+      <img src="assets/mcp-mark.svg" alt="" width="34" height="34">
+      <span>MCP <strong>Flow Atlas</strong></span>
+    </a>
+    <nav aria-label="Page navigation">
+      <a href="#architecture">Architecture</a>
+      <a href="#explorer">Lifecycle</a>
+      <a href="#identity">Identity</a>
+    </nav>
+    <button class="icon-button" id="themeToggle" type="button" aria-label="Switch to light theme" title="Toggle theme">
+      <span aria-hidden="true" id="themeIcon">☼</span>
+    </button>
+  </header>
+
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="eyebrow"><span class="pulse"></span> Interactive protocol walkthrough</div>
+      <h1 id="hero-title">Follow one MCP request<br><span>from intent to result.</span></h1>
+      <p class="hero-copy">See where control, transport, identity, and data responsibilities begin and end—then inspect the exact JSON-RPC 2.0 messages at every stage.</p>
+      <div class="hero-actions">
+        <a class="primary-button" href="#explorer">Explore the lifecycle <span aria-hidden="true">↓</span></a>
+        <span class="offline-badge">Zero dependencies · Works offline</span>
+      </div>
+      <div class="hero-metrics" aria-label="Protocol highlights">
+        <div><strong>JSON-RPC 2.0</strong><span>Message envelope</span></div>
+        <div><strong>Stateful session</strong><span>Negotiated capabilities</span></div>
+        <div><strong>2 transports</strong><span>stdio + Streamable HTTP</span></div>
+      </div>
+    </section>
+
+    <section class="architecture section-shell" id="architecture" aria-labelledby="architecture-title">
+      <div class="section-heading">
+        <div><span class="kicker">System map</span><h2 id="architecture-title">Six roles, three layers</h2></div>
+        <p>MCP standardizes context exchange. It does not replace your application, identity provider, or downstream authorization model.</p>
+      </div>
+      <div class="layer-stack" id="layerStack">
+        <div class="layer layer-control" data-layer="control">
+          <div class="layer-label"><span>01</span><strong>Control / architecture</strong><small>Who decides and orchestrates</small></div>
+          <button class="node" data-role="host" type="button"><span class="node-icon">H</span><span><strong>Host / App</strong><small>AI product & UX</small></span></button>
+          <div class="flow-arrow" aria-hidden="true"><span></span><b>intent</b></div>
+          <button class="node" data-role="client" type="button"><span class="node-icon">C</span><span><strong>MCP Client</strong><small>One session per server</small></span></button>
+        </div>
+        <div class="layer layer-transport" data-layer="transport">
+          <div class="layer-label"><span>02</span><strong>Transport</strong><small>How messages move</small></div>
+          <button class="node wide" data-role="transport" type="button"><span class="node-icon">↔</span><span><strong id="transportNodeTitle">Streamable HTTP</strong><small id="transportNodeSubtitle">POST + optional SSE stream</small></span><span class="node-chip" id="transportChip">remote</span></button>
+        </div>
+        <div class="layer layer-data" data-layer="data">
+          <div class="layer-label"><span>03</span><strong>Service / data</strong><small>Where policy and work happen</small></div>
+          <button class="node" data-role="server" type="button"><span class="node-icon">S</span><span><strong>MCP Server</strong><small>Tools & resources</small></span></button>
+          <div class="branch-lines" aria-hidden="true"></div>
+          <div class="node-pair">
+            <button class="node compact" data-role="identity" type="button"><span class="node-icon">ID</span><span><strong>Identity Provider</strong><small>Tokens & claims</small></span></button>
+            <button class="node compact" data-role="data" type="button"><span class="node-icon">D</span><span><strong>Data / Tools</strong><small>APIs, DBs, systems</small></span></button>
+          </div>
+        </div>
+      </div>
+      <div class="role-note" id="roleNote" role="status" aria-live="polite"><strong>Tip:</strong> Select any node to understand its boundary.</div>
+    </section>
+
+    <section class="explorer section-shell" id="explorer" aria-labelledby="explorer-title">
+      <div class="section-heading explorer-heading">
+        <div><span class="kicker">End-to-end lifecycle</span><h2 id="explorer-title">Select a step. Inspect the wire.</h2></div>
+        <div class="controls" aria-label="Explorer settings">
+          <div class="segmented" role="group" aria-label="Transport">
+            <button type="button" data-transport="http" aria-pressed="true">Streamable HTTP</button>
+            <button type="button" data-transport="stdio" aria-pressed="false">stdio</button>
+          </div>
+          <div class="segmented" role="group" aria-label="Detail level">
+            <button type="button" data-mode="compact" aria-pressed="true">Compact</button>
+            <button type="button" data-mode="detail" aria-pressed="false">Expert</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="legend" aria-label="Diagram legend">
+        <span><i class="legend-dot request"></i>Request</span>
+        <span><i class="legend-dot response"></i>Response</span>
+        <span><i class="legend-dot notification"></i>Notification</span>
+        <span><i class="legend-dot policy"></i>Policy boundary</span>
+        <span class="legend-note" id="transportSummary">HTTP carries JSON-RPC in POST bodies; SSE may stream server messages.</span>
+      </div>
+
+      <div class="explorer-grid">
+        <aside class="timeline-panel" aria-label="MCP lifecycle steps">
+          <ol class="timeline" id="timeline"></ol>
+        </aside>
+
+        <article class="detail-panel" id="stepDetail" aria-live="polite">
+          <div class="detail-topline"><span class="step-badge" id="stepBadge">Step 01</span><span class="phase-badge" id="phaseBadge">Handshake</span></div>
+          <h3 id="stepTitle"></h3>
+          <p class="step-summary" id="stepSummary"></p>
+          <div class="route" id="stepRoute" aria-label="Message route"></div>
+          <div class="insight-row">
+            <div><span class="mini-label">What MCP guarantees</span><p id="guaranteeText"></p></div>
+            <div><span class="mini-label">What your system owns</span><p id="ownershipText"></p></div>
+          </div>
+          <div class="expert-note" id="expertNote"></div>
+
+          <div class="payload-card">
+            <div class="payload-header">
+              <div class="tabs" role="tablist" aria-label="Payload view">
+                <button id="requestTab" role="tab" type="button" aria-selected="true" aria-controls="payloadPanel" data-tab="request">Request</button>
+                <button id="responseTab" role="tab" type="button" aria-selected="false" aria-controls="payloadPanel" data-tab="response">Response</button>
+              </div>
+              <button class="copy-button" id="copyPayload" type="button"><span aria-hidden="true">⧉</span> Copy</button>
+            </div>
+            <div class="wire-meta" id="wireMeta"></div>
+            <pre id="payloadPanel" role="tabpanel" aria-labelledby="requestTab" tabindex="0"><code id="payloadCode"></code></pre>
+          </div>
+          <div class="step-nav">
+            <button id="prevStep" type="button">← Previous</button>
+            <span id="stepCounter">1 / 10</span>
+            <button id="nextStep" type="button">Next →</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="identity section-shell" id="identity" aria-labelledby="identity-title">
+      <div class="section-heading">
+        <div><span class="kicker">Trust model</span><h2 id="identity-title">Authentication proves. Authorization decides.</h2></div>
+        <p>These responsibilities are related, but they happen at different boundaries.</p>
+      </div>
+      <div class="identity-grid">
+        <article class="concept-card authn-card">
+          <span class="concept-number">01</span><div class="concept-icon" aria-hidden="true">◎</div>
+          <h3>Authentication</h3><p>For remote Streamable HTTP servers, OAuth 2.1-style flows establish who the client or user is.</p>
+          <ul><li>Authorization Code + PKCE</li><li>Bearer access token</li><li>Resource indicators / audience binding</li><li>Issuer, expiry, and signature validation</li></ul>
+        </article>
+        <div class="not-equal" aria-label="is not the same as">≠</div>
+        <article class="concept-card authz-card">
+          <span class="concept-number">02</span><div class="concept-icon" aria-hidden="true">◇</div>
+          <h3>Authorization</h3><p>The MCP server and downstream systems decide whether that identity may perform the requested action.</p>
+          <ul><li>Scopes and token claims</li><li>Tenant / resource ownership</li><li>Server policy and consent</li><li>Downstream ACLs and data permissions</li></ul>
+        </article>
+      </div>
+      <div class="callout"><strong>Protocol boundary:</strong> A <code>tools/call</code> payload names a tool and its arguments—it does not grant permission. The server must enforce policy before execution, and downstream systems must enforce their own controls.</div>
+    </section>
+  </main>
+
+  <footer><div class="brand footer-brand"><img src="assets/mcp-mark.svg" alt="" width="28" height="28"><span>MCP <strong>Flow Atlas</strong></span></div><p>A local-first visual guide to Model Context Protocol.</p><a href="#top">Back to top ↑</a></footer>
+  <div class="sr-only" id="announcer" aria-live="polite"></div>
+</body>
+</html>
