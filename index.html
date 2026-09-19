@@ -51,38 +51,89 @@
 
     <section class="overview section-shell" id="overview" aria-labelledby="overview-title">
       <div class="section-heading">
-        <div><span class="kicker">Protocol overview</span><h2 id="overview-title">Three primitives. Three kinds of context.</h2></div>
-        <p>MCP servers expose tools, resources, and prompts through standard JSON-RPC methods. The host decides how each primitive is discovered, presented, approved, and used.</p>
+        <div><span class="kicker">Protocol overview</span><h2 id="overview-title">Primitives flow in both directions.</h2></div>
+        <p>MCP 2025-06-18 defines three server primitives and three client-offered features. Capabilities negotiated during initialization determine which exchanges are available; support is never implied.</p>
+      </div>
+
+      <div class="primitive-group-heading">
+        <div><span class="primitive-direction" aria-hidden="true">S → C</span><div><h3>Server primitives</h3><p>The server exposes context and actions; the client discovers them and decides how they enter the host experience.</p></div></div>
+        <span class="primitive-count">3 core primitives</span>
       </div>
       <div class="primitive-grid">
         <article class="primitive-card primitive-tool">
           <div class="primitive-topline"><span class="primitive-icon" aria-hidden="true">T</span><span class="primitive-control">Model-controlled</span></div>
           <h3>Tools</h3>
-          <p>Executable operations that let a model query a system or perform an action, subject to host approval and server authorization.</p>
+          <p>Schema-described functions that let a model retrieve information or perform an action. “Model-controlled” describes the interaction pattern, not permission: the host should expose calls for approval, and the server must still authorize every action.</p>
           <div class="primitive-example">
             <span class="mini-label">Example · look up inventory</span>
             <code><span>tools/call</span> → inventory.lookup({ sku: "MCP-2048" })</code>
           </div>
+          <p class="primitive-methods"><strong>Discover:</strong> <code>tools/list</code> <strong>Use:</strong> <code>tools/call</code></p>
         </article>
         <article class="primitive-card primitive-resource">
           <div class="primitive-topline"><span class="primitive-icon" aria-hidden="true">R</span><span class="primitive-control">Application-controlled</span></div>
           <h3>Resources</h3>
-          <p>Addressable data that applications can discover, read, or subscribe to and then include in model context when relevant.</p>
+          <p>URI-addressed data such as files, records, schemas, or API responses. The application chooses what to read, subscribe to, display, or place into model context; resource templates parameterize URIs rather than forming another primitive.</p>
           <div class="primitive-example">
             <span class="mini-label">Example · read a catalog record</span>
             <code><span>resources/read</span> → inventory://catalog/MCP-2048</code>
           </div>
+          <p class="primitive-methods"><strong>Discover:</strong> <code>resources/list</code> <strong>Use:</strong> <code>resources/read</code></p>
         </article>
         <article class="primitive-card primitive-prompt">
           <div class="primitive-topline"><span class="primitive-icon" aria-hidden="true">P</span><span class="primitive-control">User-controlled</span></div>
           <h3>Prompts</h3>
-          <p>Reusable, parameterized message templates that users explicitly select to start a consistent workflow.</p>
+          <p>Server-authored, reusable message templates with optional arguments. “User-controlled” means the user explicitly selects one, often through a slash command or menu; the host should identify the supplying server and preview the resulting messages.</p>
           <div class="primitive-example">
             <span class="mini-label">Example · prepare a stock review</span>
             <code><span>prompts/get</span> → review-stock({ region: "east" })</code>
           </div>
+          <p class="primitive-methods"><strong>Discover:</strong> <code>prompts/list</code> <strong>Use:</strong> <code>prompts/get</code></p>
         </article>
       </div>
+
+      <div class="primitive-group-heading primitive-client-heading">
+        <div><span class="primitive-direction" aria-hidden="true">C ← S</span><div><h3>Client-offered features</h3><p>The client advertises these capabilities; a server can then request host, model, filesystem, or user assistance.</p></div></div>
+        <span class="primitive-count">2025-06-18</span>
+      </div>
+      <div class="primitive-grid">
+        <article class="primitive-card primitive-sampling">
+          <div class="primitive-topline"><span class="primitive-icon" aria-hidden="true">S</span><span class="primitive-status">Deprecated · 2026-07-28</span></div>
+          <h3>Sampling</h3>
+          <p>In 2025-06-18, Sampling let a server request an LLM generation through the client without owning model credentials. It is deprecated in 2026-07-28; new servers should integrate directly with an LLM provider. Clients should still gate legacy requests and let users review prompts and results.</p>
+          <div class="primitive-example">
+            <span class="mini-label">Legacy example · summarize tool results</span>
+            <code><span>sampling/createMessage</span> → "Summarize these stock changes"</code>
+          </div>
+          <p class="primitive-methods"><strong>2025 capability:</strong> <code>sampling</code> <strong>Current status:</strong> deprecated</p>
+        </article>
+        <article class="primitive-card primitive-roots">
+          <div class="primitive-topline"><span class="primitive-icon" aria-hidden="true">R</span><span class="primitive-status">Deprecated · 2026-07-28</span></div>
+          <h3>Roots</h3>
+          <p>In 2025-06-18, Roots let a client tell a server which filesystem locations were relevant to the workspace. They never granted access or replaced filesystem permissions. Roots are deprecated in 2026-07-28; new designs should pass files or directories through tool arguments, resource URIs, or server configuration.</p>
+          <div class="primitive-example">
+            <span class="mini-label">Legacy example · expose a workspace boundary</span>
+            <code><span>roots/list</span> → file:///workspaces/inventory-app</code>
+          </div>
+          <p class="primitive-methods"><strong>2025 capability:</strong> <code>roots</code> <strong>Current status:</strong> deprecated</p>
+        </article>
+        <article class="primitive-card primitive-elicitation">
+          <div class="primitive-topline"><span class="primitive-icon" aria-hidden="true">E</span><span class="primitive-control">User-controlled</span></div>
+          <h3>Elicitation</h3>
+          <p>Lets a server request additional, structured information during a workflow. The client renders the request and the user may accept, decline, or cancel. In this protocol version, servers must not request sensitive information this way.</p>
+          <div class="primitive-example">
+            <span class="mini-label">Example · confirm a missing field</span>
+            <code><span>elicitation/create</span> → { message: "Choose a warehouse" }</code>
+          </div>
+          <p class="primitive-methods"><strong>Capability:</strong> <code>elicitation</code> <strong>Added:</strong> 2025-06-18</p>
+        </article>
+      </div>
+
+      <aside class="primitive-boundary">
+        <div><span class="mini-label">Taxonomy matters</span><strong>Related protocol machinery is not another primitive.</strong></div>
+        <p>Capabilities advertise support; notifications report changes; completion suggests prompt or resource arguments; progress, cancellation, pagination, transport, and authorization support the exchanges. They do not create additional context primitives. The 2025 Logging utility is also deprecated in 2026-07-28; use <code>stderr</code> for stdio or OpenTelemetry instead.</p>
+      </aside>
+      <p class="primitive-sources">Official MCP sources: <a href="https://modelcontextprotocol.io/specification/2025-06-18" target="_blank" rel="noreferrer">2025-06-18 overview</a>, <a href="https://modelcontextprotocol.io/specification/2025-06-18/server" target="_blank" rel="noreferrer">server primitives</a>, <a href="https://modelcontextprotocol.io/specification/2025-06-18/client/sampling" target="_blank" rel="noreferrer">sampling</a>, <a href="https://modelcontextprotocol.io/specification/2025-06-18/client/roots" target="_blank" rel="noreferrer">roots</a>, <a href="https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation" target="_blank" rel="noreferrer">elicitation</a>, and the <a href="https://modelcontextprotocol.io/specification/2026-07-28/deprecated" target="_blank" rel="noreferrer">2026-07-28 deprecation registry</a>.</p>
     </section>
 
     <section class="onboard section-shell" id="onboard" aria-labelledby="onboard-title">

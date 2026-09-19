@@ -14,7 +14,7 @@ Then visit [http://localhost:4173](http://localhost:4173).
 
 ## Features
 
-- At-a-glance overview of the core MCP tools, resources, and prompts primitives, with examples
+- Version-aligned overview of server primitives and client-offered features, with control models, methods, examples, and taxonomy boundaries
 - Interactive architecture map with control, transport, and data layers
 - Twelve selectable MCP lifecycle steps and realistic request/response examples
 - MCP 2025-06-18 Streamable HTTP and MCP 2024-11-05 legacy HTTP+SSE modes, plus stdio
