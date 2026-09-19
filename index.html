@@ -233,8 +233,14 @@
     <section class="risks section-shell" id="risks" aria-labelledby="risks-title">
       <div class="section-heading risk-heading">
         <div><span class="kicker">OWASP MCP Top 10 · 2025 beta</span><h2 id="risks-title">Inspect the attack surface.</h2></div>
-        <p>This beta register maps each risk to its boundary, a compact failure pattern, and an implementable control.</p>
+        <p>An attack surface is every place untrusted data, identity, code, or authority crosses a boundary. Expand a risk to compare an unsafe pattern with a safer design and a practical verification check.</p>
       </div>
+      <div class="risk-primer" aria-label="How to inspect an MCP attack surface">
+        <div><span class="concept-number">01</span><strong>Locate the boundary</strong><p>Identify where identity, tool metadata, arguments, content, packages, or results enter a more trusted component.</p></div>
+        <div><span class="concept-number">02</span><strong>Trace authority and data</strong><p>Ask what the caller can access, what the model can influence, and which downstream side effects are possible.</p></div>
+        <div><span class="concept-number">03</span><strong>Verify the control</strong><p>Test the denied path—not only the happy path—and confirm the decision is visible without leaking secrets.</p></div>
+      </div>
+      <p class="risk-reading-note"><strong>Secure does not mean risk-free.</strong> The safer examples reduce exposure through least privilege, explicit validation, isolation, and auditable decisions; they still require threat modeling for your deployment.</p>
       <div class="risk-toolbar">
         <div class="segmented" role="group" aria-label="Filter risks by boundary">
           <button type="button" data-risk-filter="all" aria-pressed="true">All</button>

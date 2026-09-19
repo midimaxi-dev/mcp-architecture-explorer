@@ -25,7 +25,7 @@ Then visit [http://localhost:4173](http://localhost:4173).
 - JWT validation, `scp` versus `roles`, principal-to-session binding, 401/403 behavior, and downstream OBO guidance
 - Explicit token boundary: authorization tokens never enter JSON-RPC, MCP session state, tool arguments, or model context
 - Protocol-aware “Onboard an MCP server” guide with a trust-to-operations sequence, host-specific manifest boundary, selectable stdio/HTTP/harness examples, field glossary, and configuration warnings
-- Interactive OWASP MCP Top 10 2025 beta register with boundary filters, insecure examples, controls, and official sources
+- Interactive OWASP MCP Top 10 2025 beta register with a review method, boundary filters, insecure/secure comparisons, impact, controls, verification checks, and official sources
 - Responsive, keyboard-accessible, theme-aware interface that works offline
 
 ## File structure
