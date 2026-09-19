@@ -1,6 +1,6 @@
 # MCP Flow Atlas
 
-A polished, dependency-free interactive guide to the Model Context Protocol (MCP). It maps the host, client, transport, server, identity provider, and backing systems across a ten-step lifecycle, with selectable JSON-RPC 2.0 payloads for both stdio and Streamable HTTP.
+A polished, dependency-free interactive guide to Model Context Protocol (MCP) architecture, Microsoft Entra ID authorization, protocol generations, and security boundaries.
 
 ## Run locally
 
@@ -15,11 +15,17 @@ Then visit [http://localhost:4173](http://localhost:4173).
 ## Features
 
 - Interactive architecture map with control, transport, and data layers
-- Ten selectable MCP lifecycle steps and realistic request/response examples
-- Streamable HTTP and stdio transport modes
+- Twelve selectable MCP lifecycle steps and realistic request/response examples
+- MCP 2025-06-18 Streamable HTTP and MCP 2024-11-05 legacy HTTP+SSE modes, plus stdio
+- Protocol-aware lifecycle copy, transport labels, wire metadata, and `initialize.protocolVersion`
 - Compact and expert detail modes
 - Request/response payload tabs with copy support
-- OAuth 2.1, PKCE, bearer token, resource indicator, scopes, claims, and policy guidance
+- Microsoft Entra ID protected-resource discovery and MSAL Authorization Code + PKCE guidance
+- Confidential application patterns for managed identity, workload identity federation, certificates, and client credentials
+- JWT validation, `scp` versus `roles`, principal-to-session binding, 401/403 behavior, and downstream OBO guidance
+- Explicit token boundary: authorization tokens never enter JSON-RPC, MCP session state, tool arguments, or model context
+- Protocol-aware “Onboard an MCP server” guide with a trust-to-operations sequence, host-specific manifest boundary, selectable stdio/HTTP/harness examples, field glossary, and configuration warnings
+- Interactive OWASP MCP Top 10 2025 beta register with boundary filters, insecure examples, controls, and official sources
 - Responsive, keyboard-accessible, theme-aware interface that works offline
 
 ## File structure
