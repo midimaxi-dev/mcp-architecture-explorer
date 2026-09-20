@@ -295,6 +295,148 @@ const lifecycle = [
   }
 ];
 
+const exchangeDetails = [
+  {
+    classification: "OAuth discovery", flowBadge: "Required first use", sequenceLabel: "Required",
+    initiator: "MCP Client", receiver: "MCP Server", responder: "MCP Server", requestActor: "client", receiverActor: "server",
+    channel: "HTTPS / HTTP 401",
+    purpose: "Learn how the protected MCP resource is authorized before obtaining a token.",
+    success: "The client verifies the resource metadata and selects an allowed Entra issuer.",
+    failure: "The challenge is missing, metadata does not match the resource, or the authority is not trusted.",
+    stdio: {
+      title: "Launch the local server", short: "Launch local server", summary: "For stdio, the host launches a trusted local server process and relies on operating-system, executable, and environment boundaries instead of HTTP authorization discovery.",
+      classification: "Local process trust", flowBadge: "stdio alternative", sequenceLabel: "Launch",
+      initiator: "Host", receiver: "Local MCP server process", responder: "MCP Server", requestActor: "host", receiverActor: "server",
+      channel: "OS process boundary",
+      purpose: "Launch a trusted local server; MCP does not use HTTP authorization discovery for stdio.",
+      success: "The intended executable starts with only the approved environment and operating-system permissions.",
+      failure: "The executable, package, working directory, inherited environment, or local permissions are untrusted."
+    }
+  },
+  {
+    classification: "Delegated identity", flowBadge: "Identity option A", sequenceLabel: "Option A",
+    initiator: "Public client / browser", receiver: "Microsoft Entra ID", responder: "Microsoft Entra ID", requestActor: "host", receiverActor: "entra",
+    channel: "Browser redirect + HTTPS",
+    purpose: "Authenticate a person and obtain delegated permissions for the MCP resource.",
+    success: "MSAL returns an audience-bound access token containing the consented scp values.",
+    failure: "Sign-in, consent, PKCE, issuer validation, or the requested resource does not match.",
+    stdio: { title: "Acquire optional user identity", short: "Optional user identity", summary: "MCP does not define OAuth for stdio. If the local application separately needs user identity, it acquires and protects that credential outside MCP messages.", flowBadge: "Outside MCP stdio", sequenceLabel: "External", classification: "External identity, when needed", purpose: "Acquire any user credential required by the local application outside the MCP stdio message exchange." }
+  },
+  {
+    classification: "Workload identity", flowBadge: "Identity option B", sequenceLabel: "Option B",
+    initiator: "Confidential host", receiver: "Microsoft Entra ID", responder: "Microsoft Entra ID", requestActor: "host", receiverActor: "entra",
+    channel: "OAuth token endpoint / HTTPS",
+    purpose: "Obtain application permissions when no signed-in user is involved.",
+    success: "Entra returns an audience-bound application token containing approved roles.",
+    failure: "The workload credential, federation, certificate, resource, or application permission is invalid.",
+    stdio: { title: "Provide optional workload identity", short: "Optional workload identity", summary: "MCP does not define OAuth for stdio. If the local server needs another service, supply workload identity through its environment or platform rather than MCP messages.", flowBadge: "Outside MCP stdio", sequenceLabel: "External", classification: "External identity, when needed", purpose: "Acquire any workload credential required by the local server through its environment or platform identity, not through MCP messages." }
+  },
+  {
+    classification: "MCP protocol", flowBadge: "Recommended discovery", sequenceLabel: "Exchange",
+    initiator: "MCP Client", receiver: "MCP Server", responder: "MCP Server", requestActor: "client", receiverActor: "server",
+    purpose: "Learn supported versions, capabilities, and server identity before normal operations.",
+    success: "The client selects a compatible version and understands the advertised capabilities.",
+    failure: "The server rejects the version or returns an invalid discovery result.",
+    legacy: {
+      title: "Initialize the legacy session", short: "Initialize", classification: "MCP initialization", flowBadge: "Required legacy handshake", sequenceLabel: "Handshake",
+      purpose: "Negotiate one protocol version and both parties' capabilities for the legacy connection or session.",
+      success: "The server returns InitializeResult and the client can complete initialization.",
+      failure: "No compatible version exists or initialization returns an invalid result."
+    }
+  },
+  {
+    classification: "MCP request envelope", flowBadge: "Envelope detail", sequenceLabel: "Not a new call",
+    initiator: "MCP Client", receiver: "MCP Server", responder: "MCP Server", requestActor: "client", receiverActor: "server",
+    purpose: "Show metadata carried inside every current request; this card is an envelope close-up, not an extra lifecycle call.",
+    success: "Required _meta fields are present and mirrored HTTP headers agree with the body.",
+    failure: "Required metadata is missing, unsupported, or conflicts with an HTTP routing header.",
+    legacy: {
+      title: "Complete legacy initialization", short: "Initialized", classification: "MCP initialization notification", flowBadge: "Legacy handshake", sequenceLabel: "Handshake",
+      purpose: "Tell the legacy server that initialization completed; this replaces current per-request metadata.",
+      success: "The server accepts the notification and, over HTTP, returns 202 with no MCP response.",
+      failure: "The notification arrives before successful initialization or uses the wrong session."
+    }
+  },
+  {
+    classification: "Transport authentication", flowBadge: "Server-internal", sequenceLabel: "Internal",
+    initiator: "MCP Client", receiver: "MCP Server edge", responder: "MCP Server", requestActor: "client", receiverActor: "server",
+    purpose: "Validate the bearer token and derive a trustworthy principal before JSON-RPC dispatch.",
+    success: "The token is valid for this resource and produces a principal for authorization.",
+    failure: "The server returns 401 for an absent, expired, malformed, wrong-issuer, or wrong-audience token.",
+    stdio: {
+      title: "Apply the local authority boundary", short: "Local authority", summary: "For stdio, the server derives authority from the host-launched process and environment and applies local policy; MCP's HTTP bearer-token profile does not apply.", classification: "Local authority boundary", flowBadge: "Server-internal", sequenceLabel: "Internal",
+      initiator: "Host", receiver: "Local MCP server process", responder: "MCP Server", requestActor: "host", receiverActor: "server",
+      channel: "stdio / process environment",
+      purpose: "Derive local authority from the launched process, environment, and operating-system boundary rather than an HTTP bearer token.",
+      success: "The server applies host and local policy before dispatching the request.",
+      failure: "The process or environment grants more authority than intended, or the server skips local policy."
+    }
+  },
+  {
+    classification: "MCP protocol", flowBadge: "Standard exchange", sequenceLabel: "Exchange",
+    initiator: "MCP Client", receiver: "MCP Server", responder: "MCP Server", requestActor: "client", receiverActor: "server",
+    purpose: "Retrieve the tools currently exposed by the server.",
+    success: "The client receives schema-described tools and safely reviews their metadata.",
+    failure: "Authentication, version validation, capability handling, or schema validation fails."
+  },
+  {
+    classification: "Application authorization", flowBadge: "Server-internal", sequenceLabel: "Internal",
+    initiator: "MCP Client", receiver: "MCP Server policy", responder: "MCP Server", requestActor: "client", receiverActor: "server",
+    purpose: "Decide whether the validated principal may perform the requested operation on the target data.",
+    success: "Scope or role, tenant, tool policy, ownership, and downstream ACL checks all allow the action.",
+    failure: "A valid caller lacks permission and receives 403 before any side effect."
+  },
+  {
+    classification: "MCP protocol", flowBadge: "Standard exchange", sequenceLabel: "Exchange",
+    initiator: "MCP Client", receiver: "MCP Server", responder: "MCP Server", requestActor: "client", receiverActor: "server",
+    purpose: "Invoke one approved tool with schema-valid arguments.",
+    success: "The server returns a correlated complete result with validated structured content.",
+    failure: "Arguments, approval, authorization, execution, or result validation fails."
+  },
+  {
+    classification: "MCP multi round-trip", flowBadge: "Conditional", sequenceLabel: "Conditional",
+    initiator: "MCP Client", receiver: "MCP Server", responder: "MCP Server", requestActor: "client", receiverActor: "server",
+    purpose: "Gather additional approved client or user input when the original operation cannot yet complete.",
+    success: "The client fulfills supported input requests and retries with a new request ID.",
+    failure: "The input is declined, unsupported, invalid, expired, replayed, or bound to another principal.",
+    legacy: {
+      classification: "Legacy server request", flowBadge: "Legacy interaction", sequenceLabel: "Server request",
+      initiator: "MCP Server", receiver: "MCP Client", responder: "MCP Client", requestActor: "server", receiverActor: "client",
+      purpose: "Ask the legacy client for user input through a server-initiated elicitation/create request.",
+      success: "The client obtains an approved response and replies using the same JSON-RPC request ID.",
+      failure: "The client lacks the capability, the user declines, or the returned content is invalid."
+    }
+  },
+  {
+    classification: "Downstream identity", flowBadge: "Conditional", sequenceLabel: "Conditional",
+    initiator: "MCP Server", receiver: "Microsoft Entra ID", responder: "Microsoft Entra ID", requestActor: "server", receiverActor: "entra",
+    channel: "OAuth OBO token endpoint / HTTPS",
+    purpose: "Exchange the inbound delegated assertion for a separate token addressed to the downstream API.",
+    success: "The server receives a downstream audience-bound token and calls the API under least privilege.",
+    failure: "Consent, client authentication, assertion validation, scope, or downstream authorization fails."
+  },
+  {
+    classification: "HTTP authorization outcome", flowBadge: "Outcome example", sequenceLabel: "Outcome",
+    initiator: "MCP Client", receiver: "MCP Server", responder: "MCP Server", requestActor: "client", receiverActor: "server",
+    purpose: "Return the operation result or an error at the correct protocol or HTTP layer.",
+    success: "The client receives one correlated MCP result after transport authentication and policy succeed.",
+    failure: "The server returns 401 for invalid authentication, 403 for denied authorization, or a JSON-RPC error after dispatch."
+  },
+  {
+    classification: "MCP subscription", flowBadge: "Optional", sequenceLabel: "Optional",
+    initiator: "MCP Client", receiver: "MCP Server", responder: "MCP Server", requestActor: "client", receiverActor: "server",
+    purpose: "Open a long-lived request for only the change notifications the client selected.",
+    success: "The server acknowledges the filter and correlates notifications with the subscription ID.",
+    failure: "The filter is unsupported, the stream closes unexpectedly, or the client fails to re-subscribe.",
+    legacy: {
+      classification: "Legacy resource subscription", flowBadge: "Optional legacy flow", sequenceLabel: "Optional",
+      purpose: "Subscribe to a resource and receive updates through the legacy session and optional GET SSE stream.",
+      success: "The server accepts resources/subscribe and emits resource update notifications.",
+      failure: "The resource cannot be subscribed to, the session expires, or the legacy stream disconnects."
+    }
+  }
+];
+
 const risks = [
   { id: "MCP01", title: "Token Mismanagement & Secret Exposure", boundary: "identity", affected: "Client cache ↔ transport ↔ server logs", impact: "A leaked bearer token can be replayed as its owner until it expires or is revoked.", insecure: `await client.callTool({
   name: "lookup_order",
@@ -491,13 +633,98 @@ function currentPayload() {
   return protocolPayload(step, state.tab);
 }
 
+const swimlaneActors = [
+  { id: "host", label: "USER / HOST", x: 100 },
+  { id: "client", label: "MCP CLIENT", x: 300 },
+  { id: "entra", label: "ENTRA ID", x: 500 },
+  { id: "server", label: "MCP SERVER", x: 700 },
+  { id: "downstream", label: "DOWNSTREAM", x: 900 }
+];
+
+function exchangeFor(index) {
+  const exchange = exchangeDetails[index];
+  return {
+    ...exchange,
+    ...(state.protocol === "legacy" ? exchange.legacy : {}),
+    ...(state.transport === "stdio" ? exchange.stdio : {})
+  };
+}
+
+function selectedChannel(exchange) {
+  if (exchange.channel) return exchange.channel;
+  return state.transport === "http"
+    ? `${versions[state.protocol].title} / HTTPS`
+    : "stdio / stdin and stdout";
+}
+
+function renderSwimlane(exchange) {
+  const requestSource = swimlaneActors.find((actor) => actor.id === exchange.requestActor);
+  const requestTarget = swimlaneActors.find((actor) => actor.id === exchange.receiverActor);
+  const responseSource = swimlaneActors.find((actor) => actor.id === (exchange.responseActor || exchange.receiverActor));
+  const responseTarget = swimlaneActors.find((actor) => actor.id === (exchange.responseToActor || exchange.requestActor));
+  const endpoint = (source, target, offset) => source.x + Math.sign(target.x - source.x) * offset;
+  const requestStart = endpoint(requestSource, requestTarget, 52);
+  const requestEnd = endpoint(requestTarget, requestSource, 52);
+  const responseStart = endpoint(responseSource, responseTarget, 52);
+  const responseEnd = endpoint(responseTarget, responseSource, 52);
+  const requestMid = (requestStart + requestEnd) / 2;
+  const responseMid = (responseStart + responseEnd) / 2;
+  const title = `${exchange.initiator} sends the request to ${exchange.receiver}; ${exchange.responder} responds`;
+
+  $("#stepSwimlane").innerHTML = `
+    <svg viewBox="0 0 1000 176" role="img" aria-labelledby="step-exchange-title step-exchange-desc">
+      <title id="step-exchange-title">${escapeHtml(title)}</title>
+      <desc id="step-exchange-desc">Five actor lanes showing the selected request and its response. Only participating actor lanes are highlighted.</desc>
+      <defs>
+        <marker id="arrow-request" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#8d98ff"></polygon></marker>
+        <marker id="arrow-response" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#70e1c4"></polygon></marker>
+        <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f7cff"></polygon></marker>
+      </defs>
+      ${[200, 400, 600, 800].map((x) => `<line class="lane-rule" x1="${x}" y1="32" x2="${x}" y2="164"></line>`).join("")}
+      ${swimlaneActors.map((actor) => `<text class="lane-label" x="${actor.x}" y="22" text-anchor="middle">${actor.label}</text>`).join("")}
+      <line class="request-line" x1="${requestStart}" y1="72" x2="${requestEnd}" y2="72" marker-end="url(#arrow-request)"></line>
+      <rect class="arrow-mask" x="${requestMid - 48}" y="31" width="96" height="16" rx="2"></rect>
+      <text class="arrow-label request" x="${requestMid}" y="43" text-anchor="middle">REQUEST</text>
+      <line class="response-line" x1="${responseStart}" y1="136" x2="${responseEnd}" y2="136" marker-end="url(#arrow-response)"></line>
+      <rect class="arrow-mask" x="${responseMid - 52}" y="95" width="104" height="16" rx="2"></rect>
+      <text class="arrow-label response" x="${responseMid}" y="107" text-anchor="middle">RESPONSE</text>
+      <rect class="exchange-node request" x="${requestSource.x - 42}" y="56" width="84" height="32" rx="6"></rect>
+      <text class="node-label" x="${requestSource.x}" y="77" text-anchor="middle">Send</text>
+      <rect class="exchange-node request" x="${requestTarget.x - 42}" y="56" width="84" height="32" rx="6"></rect>
+      <text class="node-label" x="${requestTarget.x}" y="77" text-anchor="middle">Handle</text>
+      <rect class="exchange-node response" x="${responseSource.x - 42}" y="120" width="84" height="32" rx="6"></rect>
+      <text class="node-label" x="${responseSource.x}" y="141" text-anchor="middle">Reply</text>
+      <rect class="exchange-node response" x="${responseTarget.x - 42}" y="120" width="84" height="32" rx="6"></rect>
+      <text class="node-label" x="${responseTarget.x}" y="141" text-anchor="middle">Receive</text>
+    </svg>`;
+}
+
+function renderExchange(exchange) {
+  $("#flowBadge").textContent = exchange.flowBadge;
+  $("#exchangeClassification").textContent = exchange.classification;
+  $("#exchangeInitiator").textContent = exchange.initiator;
+  $("#exchangeReceiver").textContent = exchange.receiver;
+  $("#exchangeResponder").textContent = exchange.responder;
+  $("#exchangeChannel").textContent = selectedChannel(exchange);
+  $("#exchangePurpose").textContent = exchange.purpose;
+  $("#exchangeSuccess").textContent = exchange.success;
+  $("#exchangeFailure").textContent = exchange.failure;
+  $("#mobileExchange").innerHTML = `
+    <div><strong>Request</strong><span>${escapeHtml(exchange.initiator)} → ${escapeHtml(exchange.receiver)}</span></div>
+    <div><strong>Response</strong><span>${escapeHtml(exchange.responder)} → ${escapeHtml(exchange.initiator)}</span></div>`;
+  renderSwimlane(exchange);
+}
+
 function renderTimeline() {
-  $("#timeline").innerHTML = lifecycle.map((step, index) => `
+  $("#timeline").innerHTML = lifecycle.map((step, index) => {
+    const exchange = exchangeFor(index);
+    return `
     <li><button class="step-button" type="button" data-step="${index}" aria-current="${index === state.step ? "step" : "false"}">
       <span class="step-index">${String(index + 1).padStart(2, "0")}</span>
-      <span class="step-name"><strong>${step.short}</strong><small>${step.phase}</small></span>
+      <span class="step-name"><strong>${exchange.short || step.short}</strong><small>${step.phase} · ${exchange.sequenceLabel}</small></span>
       <span class="step-kind">${step.kind}</span>
-    </button></li>`).join("");
+    </button></li>`;
+  }).join("");
   $$(".step-button").forEach((button) => button.addEventListener("click", () => selectStep(Number(button.dataset.step))));
 }
 
@@ -514,12 +741,14 @@ function renderPayload() {
 
 function renderStep({ announce = false } = {}) {
   const step = lifecycle[state.step];
+  const exchange = exchangeFor(state.step);
   const legacy = state.protocol === "legacy";
   $("#stepBadge").textContent = `Step ${String(state.step + 1).padStart(2, "0")}`;
   $("#phaseBadge").textContent = step.phase;
-  $("#stepTitle").textContent = step.title;
-  $("#stepSummary").textContent = legacy && step.legacySummary ? step.legacySummary : step.summary;
+  $("#stepTitle").textContent = exchange.title || step.title;
+  $("#stepSummary").textContent = exchange.summary || (legacy && step.legacySummary ? step.legacySummary : step.summary);
   $("#stepRoute").innerHTML = step.route.map((node, index) => `${index ? '<span class="route-arrow" aria-hidden="true">→</span>' : ""}<span class="route-node ${index === 0 || index === step.route.length - 1 ? "active" : ""}">${node}</span>`).join("");
+  renderExchange(exchange);
   $("#guaranteeText").textContent = legacy && step.legacyGuarantee ? step.legacyGuarantee : step.guarantee;
   $("#ownershipText").textContent = step.ownership;
   $("#expertNote").innerHTML = `<strong>Expert note:</strong> ${escapeHtml(step.expert)}`;
@@ -551,6 +780,7 @@ function setTransport(transport) {
   state.transport = transport;
   $$("[data-transport]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.transport === transport)));
   updateTransportDisplay();
+  renderTimeline();
   renderStep();
   $("#announcer").textContent = `${transport === "http" ? versions[state.protocol].name : "stdio"} transport selected`;
 }
@@ -560,6 +790,7 @@ function setProtocol(protocol) {
   $$("[data-protocol]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.protocol === protocol)));
   $("#heroProtocol").textContent = `MCP ${versions[protocol].value}`;
   updateTransportDisplay();
+  renderTimeline();
   renderStep();
   renderOnboarding();
   $("#announcer").textContent = `MCP ${versions[protocol].value} selected`;

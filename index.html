@@ -256,14 +256,37 @@
         <span><i class="legend-dot policy"></i>Policy boundary</span>
         <span class="legend-note" id="transportSummary">2026-07-28: stateless POST requests; request-scoped SSE is optional.</span>
       </div>
+      <p class="explorer-guide"><strong>How to read the flow:</strong> request and response arrows identify the initiating and responding components. Labels distinguish real exchanges from identity alternatives, server-internal processing, conditional work, and optional operations—so the 13 cards are not all mandatory sequential network calls.</p>
 
       <div class="explorer-grid">
         <aside class="timeline-panel" aria-label="MCP lifecycle steps"><ol class="timeline" id="timeline"></ol></aside>
         <article class="detail-panel" id="stepDetail" aria-live="polite">
-          <div class="detail-topline"><span class="step-badge" id="stepBadge">Step 01</span><span class="phase-badge" id="phaseBadge">Trust</span></div>
+          <div class="detail-topline"><span class="step-badge" id="stepBadge">Step 01</span><span class="phase-badge" id="phaseBadge">Trust</span><span class="flow-badge" id="flowBadge">Required exchange</span></div>
           <h3 id="stepTitle"></h3>
           <p class="step-summary" id="stepSummary"></p>
-          <div class="route" id="stepRoute" aria-label="Message route"></div>
+          <section class="exchange-card" aria-labelledby="exchangeTitle">
+            <div class="exchange-heading">
+              <div><span class="mini-label">Selected exchange</span><h4 id="exchangeTitle">Who sends what</h4></div>
+              <span class="exchange-classification" id="exchangeClassification"></span>
+            </div>
+            <dl class="exchange-facts">
+              <div><dt>Initiator</dt><dd id="exchangeInitiator"></dd></div>
+              <div><dt>Receiver</dt><dd id="exchangeReceiver"></dd></div>
+              <div><dt>Responder</dt><dd id="exchangeResponder"></dd></div>
+              <div><dt>Channel</dt><dd id="exchangeChannel"></dd></div>
+            </dl>
+            <figure class="step-swimlane" id="stepSwimlane"></figure>
+            <div class="mobile-exchange" id="mobileExchange" aria-hidden="true"></div>
+            <div class="component-route">
+              <span class="mini-label">Components involved</span>
+              <div class="route" id="stepRoute" aria-label="Components involved in this step"></div>
+            </div>
+            <div class="exchange-outcomes">
+              <div><span class="mini-label">Purpose</span><p id="exchangePurpose"></p></div>
+              <div><span class="mini-label">Success looks like</span><p id="exchangeSuccess"></p></div>
+              <div><span class="mini-label">Failure looks like</span><p id="exchangeFailure"></p></div>
+            </div>
+          </section>
           <div class="insight-row">
             <div><span class="mini-label">What MCP guarantees</span><p id="guaranteeText"></p></div>
             <div><span class="mini-label">What your system owns</span><p id="ownershipText"></p></div>

@@ -16,7 +16,8 @@ Then visit [http://localhost:4173](http://localhost:4173).
 
 - Version-aligned overview of server primitives and client-offered features, with control models, methods, examples, and taxonomy boundaries
 - Interactive architecture map with control, transport, and data layers
-- Thirteen selectable MCP lifecycle steps and realistic request/response examples
+- Thirteen selectable MCP lifecycle steps with explicit initiator, receiver, responder, channel, purpose, success/failure guidance, and realistic payloads
+- Responsive selected-step swimlanes plus clear labels for identity alternatives, internal processing, conditional work, and optional operations
 - Current MCP 2026-07-28 and legacy initialization-based MCP 2025-06-18 modes, plus stdio
 - Required per-request `params._meta`, `server/discover`, stateless request handling, MRTR, subscriptions, and legacy initialization comparisons
 - Compact and expert detail modes
