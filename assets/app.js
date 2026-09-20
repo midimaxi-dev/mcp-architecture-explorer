@@ -601,6 +601,14 @@ const state = { step: 0, transport: "http", protocol: "modern", mode: "compact",
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const sourceRoot = "https://github.com/OWASP/www-project-mcp-top-10/blob/main/2025/";
+const lifecyclePhases = [
+  { label: "Connect", steps: [0] },
+  { label: "Identity choice", steps: [1, 2] },
+  { label: "Discover", steps: [3] },
+  { label: "Route + validate", steps: [4, 5] },
+  { label: "Execute safely", steps: [6, 7, 8, 9, 10] },
+  { label: "Complete + operate", steps: [11, 12] }
+];
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
@@ -716,7 +724,8 @@ function renderExchange(exchange) {
 }
 
 function renderTimeline() {
-  $("#timeline").innerHTML = lifecycle.map((step, index) => {
+  const renderStepButton = (index) => {
+    const step = lifecycle[index];
     const exchange = exchangeFor(index);
     return `
     <li><button class="step-button" type="button" data-step="${index}" aria-current="${index === state.step ? "step" : "false"}">
@@ -724,7 +733,12 @@ function renderTimeline() {
       <span class="step-name"><strong>${exchange.short || step.short}</strong><small>${step.phase} · ${exchange.sequenceLabel}</small></span>
       <span class="step-kind">${step.kind}</span>
     </button></li>`;
-  }).join("");
+  };
+  $("#timeline").innerHTML = lifecyclePhases.map((phase) => `
+    <li class="timeline-phase">
+      <span class="timeline-phase-label">${phase.label}</span>
+      <ol>${phase.steps.map(renderStepButton).join("")}</ol>
+    </li>`).join("");
   $$(".step-button").forEach((button) => button.addEventListener("click", () => selectStep(Number(button.dataset.step))));
 }
 
