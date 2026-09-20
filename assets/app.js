@@ -62,7 +62,7 @@ const exampleTokens = {
   })
 };
 
-const exampleBearerHeader = "Authorization: Bearer <fake delegated access_token from Step 2>";
+const exampleBearerHeader = "HTTP bearer access-token header uses the fake access_token from Step 2";
 
 const versions = {
   modern: {
@@ -164,7 +164,7 @@ const lifecycle = [
     guarantee: "Invalid tokens receive 401; valid tokens with insufficient permission receive 403.",
     ownership: "Signature and key validation, issuer, audience, tenant, lifetime, claims policy, replay defenses, and principal binding.",
     expert: "Validate signature with trusted Entra metadata/JWKS plus iss, aud, tid, nbf, and exp. Use scp for delegated permissions or roles for application permissions. Do not treat one as the other.",
-    request: { authorization_material: "fake delegated JWT from Step 2 HTTP Authorization header", decoded_claims: { aud: mcpAudience, iss: `https://login.microsoftonline.com/${exampleTenantId}/v2.0`, tid: exampleTenantId, oid: exampleUserObjectId, azp: exampleClientId, scp: "mcp.tools.read inventory.read", nbf: 1790002800, exp: 1790006400 }, jwt_checks: ["signature", "issuer", "audience", "tenant", "not_before", "expiry"], permission_branch: { delegated: "scp contains mcp.tools.read", application: "roles contains Mcp.Tools.Read" }, session_binding: ["tid", "oid/sub", "azp/appid"] },
+    request: { token_source: "HTTP bearer access-token header", token_value: "uses the fake delegated access_token issued in Step 2; it is not part of the JSON-RPC body", decoded_claims: { aud: mcpAudience, iss: `https://login.microsoftonline.com/${exampleTenantId}/v2.0`, tid: exampleTenantId, oid: exampleUserObjectId, azp: exampleClientId, scp: "mcp.tools.read inventory.read", nbf: 1790002800, exp: 1790006400 }, jwt_checks: ["signature", "issuer", "audience", "tenant", "not_before", "expiry"], permission_branch: { delegated: "scp contains mcp.tools.read", application: "roles contains Mcp.Tools.Read" }, session_binding: ["tid", "oid/sub", "azp/appid"] },
     response: { valid_and_allowed: "continue", invalid_token: "401 + WWW-Authenticate", valid_but_insufficient: "403", principal_changed_for_session: "reject and require a new session" },
     http: httpMeta(["validate before JSON-RPC dispatch"]),
     stdio: { request: ["derive local principal from process boundary"], response: ["bind local principal/configuration to session"] }
