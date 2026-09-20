@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MCP Flow Atlas mark">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#70e1c4"/><stop offset="1" stop-color="#7b8cff"/></linearGradient></defs>
+  <rect width="64" height="64" rx="18" fill="#11162a"/>
+  <path d="M18 21.5 32 13l14 8.5v17L32 47l-14-8.5z" fill="none" stroke="url(#g)" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M24 35.5v-9l8 5 8-5v9" fill="none" stroke="url(#g)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
