@@ -1,5 +1,69 @@
 "use strict";
 
+const exampleTenantId = "11111111-2222-3333-4444-555555555555";
+const exampleClientId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+const exampleUserObjectId = "99999999-8888-7777-6666-555555555555";
+const exampleSessionId = "1868a90c-12d3-4d5e-8f90-1a2b3c4d5e6f";
+const mcpResource = "https://inventory.example.com/mcp";
+const mcpAudience = "api://inventory-mcp";
+
+function base64UrlJson(value) {
+  return btoa(JSON.stringify(value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function fakeJwt(payload) {
+  return [
+    base64UrlJson({ typ: "JWT", alg: "RS256", kid: "atlas-demo-key-01" }),
+    base64UrlJson(payload),
+    "fake-signature-for-documentation-only"
+  ].join(".");
+}
+
+const exampleTokens = {
+  delegatedMcp: fakeJwt({
+    aud: mcpAudience,
+    iss: `https://login.microsoftonline.com/${exampleTenantId}/v2.0`,
+    iat: 1790002800,
+    nbf: 1790002800,
+    exp: 1790006400,
+    azp: exampleClientId,
+    name: "Avery North",
+    oid: exampleUserObjectId,
+    preferred_username: "avery.north@example.com",
+    scp: "mcp.tools.read inventory.read",
+    sub: "X7Y8Z9-demo-subject",
+    tid: exampleTenantId,
+    ver: "2.0"
+  }),
+  appMcp: fakeJwt({
+    aud: mcpAudience,
+    iss: `https://login.microsoftonline.com/${exampleTenantId}/v2.0`,
+    iat: 1790002800,
+    nbf: 1790002800,
+    exp: 1790006400,
+    appid: "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+    azp: "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+    roles: ["Mcp.Tools.Read"],
+    tid: exampleTenantId,
+    ver: "1.0"
+  }),
+  downstreamInventory: fakeJwt({
+    aud: "api://inventory-api",
+    iss: `https://login.microsoftonline.com/${exampleTenantId}/v2.0`,
+    iat: 1790002815,
+    nbf: 1790002815,
+    exp: 1790006415,
+    azp: "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+    oid: exampleUserObjectId,
+    scp: "Inventory.Read",
+    sub: "X7Y8Z9-demo-subject",
+    tid: exampleTenantId,
+    ver: "2.0"
+  })
+};
+
+const exampleBearerHeader = "Authorization: Bearer <fake delegated access_token from Step 2>";
+
 const versions = {
   modern: {
     value: "2025-06-18",
@@ -8,8 +72,8 @@ const versions = {
     subtitle: "Single /mcp endpoint",
     chip: "2025",
     summary: "2025-06-18: one /mcp endpoint accepts POST and GET; SSE is optional.",
-    requestMeta: ["POST /mcp HTTP/1.1", "MCP-Protocol-Version: 2025-06-18", "Authorization: Bearer <access-token>"],
-    responseMeta: ["HTTP/1.1 200 OK", "Content-Type: application/json or text/event-stream", "MCP-Session-Id: s_7f3c9a"]
+    requestMeta: ["POST /mcp HTTP/1.1", "Accept: application/json, text/event-stream", "MCP-Protocol-Version: 2025-06-18", exampleBearerHeader, `Mcp-Session-Id: ${exampleSessionId} after initialize`],
+    responseMeta: ["HTTP/1.1 200 OK", "Content-Type: application/json or text/event-stream", `Mcp-Session-Id: ${exampleSessionId} on initialize response`]
   },
   legacy: {
     value: "2024-11-05",
@@ -18,7 +82,7 @@ const versions = {
     subtitle: "Separate /sse + message endpoint",
     chip: "2024",
     summary: "2024-11-05: the client opens /sse, receives an endpoint event, then POSTs JSON-RPC to that session URI.",
-    requestMeta: ["POST /messages?sessionId=s_7f3c9a HTTP/1.1", "Authorization: Bearer <access-token>", "SSE channel already open at GET /sse"],
+    requestMeta: [`POST /messages?sessionId=${exampleSessionId} HTTP/1.1`, exampleBearerHeader, "SSE channel already open at GET /sse"],
     responseMeta: ["event: message", "data: <JSON-RPC response>", "delivered on the SSE channel"]
   }
 };
@@ -41,7 +105,7 @@ const lifecycle = [
     ownership: "HTTPS, trusted metadata URLs, tenant allowlists, and rejecting untrusted authorities.",
     expert: "A 401 response points to protected-resource metadata. Validate its resource identifier and authorization_servers before following Entra metadata; never accept an attacker-selected authority.",
     request: { method: "POST", path: "/mcp", authorization: null },
-    response: { status: 401, www_authenticate: 'Bearer resource_metadata="https://inventory.example.com/.well-known/oauth-protected-resource"', metadata: { resource: "https://inventory.example.com/mcp", authorization_servers: ["https://login.microsoftonline.com/tenant-north/v2.0"], scopes_supported: ["mcp.tools.read", "inventory.read"] } },
+    response: { status: 401, www_authenticate: { scheme: "Bearer", resource_metadata: "https://inventory.example.com/.well-known/oauth-protected-resource" }, metadata: { resource: mcpResource, authorization_servers: [`https://login.microsoftonline.com/${exampleTenantId}/v2.0`], scopes_supported: ["mcp.tools.read", "inventory.read"] } },
     http: httpMeta(["initial request intentionally has no token"]),
     stdio: { request: ["launch local server process"], response: ["use OS/process trust; no HTTP authorization discovery"] }
   },
@@ -51,10 +115,10 @@ const lifecycle = [
     route: ["Client", "Browser", "Entra ID"],
     guarantee: "The modern authorization profile requires PKCE and resource-bound access tokens.",
     ownership: "MSAL configuration, exact redirect URIs, state/nonce checks, consent UX, cache protection, and silent renewal.",
-    expert: "Use acquireTokenSilent first, then an interactive MSAL flow when required. MSAL prompt: \"select_account\" is an optional Entra /authorize account-picker hint, not an MCP prompt or token request field. Request the MCP API scope and resource; never expose a client secret in a browser or native public client.",
-    request: { msal: "acquireTokenRedirect", authority: "https://login.microsoftonline.com/tenant-north", scopes: ["api://inventory-mcp/mcp.tools.read", "api://inventory-mcp/inventory.read"], pkce: "S256", prompt: "select_account" },
-    response: { token_type: "Bearer", audience: "api://inventory-mcp", delegated_claim: "scp", scopes: "mcp.tools.read inventory.read", lifetime: "short-lived", storage: "secure client token cache only" },
-    http: { request: ["browser → Entra /authorize", "code_challenge_method=S256", "prompt=select_account is optional; omit when silent/SSO account reuse is preferred"], response: ["client → Entra /token", "code_verifier + authorization code", "prompt is not sent to /token"] },
+    expert: "Use acquireTokenSilent first, then an interactive MSAL flow when required. MSAL prompt: \"select_account\" is an optional Entra /authorize account-picker hint, not an MCP prompt or token request field. Request the MCP API scope and resource; never expose a client secret in a browser or native public client. Demo JWTs are intentionally fake and non-secret.",
+    request: { msal: "acquireTokenRedirect", authority: `https://login.microsoftonline.com/${exampleTenantId}`, clientId: exampleClientId, redirectUri: "http://localhost:53000/auth/callback", scopes: [`${mcpAudience}/mcp.tools.read`, `${mcpAudience}/inventory.read`], pkce: { codeChallengeMethod: "S256" }, extraQueryParameters: { resource: mcpResource }, prompt: "select_account" },
+    response: { token_type: "Bearer", access_token: exampleTokens.delegatedMcp, expires_in: 3600, audience: mcpAudience, delegated_claim: "scp", scope: "mcp.tools.read inventory.read", refresh_token: "stored in the MSAL cache; never copied into MCP messages" },
+    http: { request: ["browser → Entra /authorize", "code_challenge_method=S256", `resource=${mcpResource}`, "prompt=select_account is optional; omit when silent/SSO account reuse is preferred"], response: ["client → Entra /token", "code_verifier + authorization code + resource", "prompt is not sent to /token"] },
     stdio: { request: ["not an MCP stdio exchange"], response: ["credentials should come from the host environment when needed"] }
   },
   {
@@ -64,8 +128,8 @@ const lifecycle = [
     guarantee: "MCP transports the request; Entra defines the confidential-client credential and token grant.",
     ownership: "Credential lifecycle, federation trust, certificate rotation, application permissions, and tenant restrictions.",
     expert: "Managed identity avoids deployable credentials in Azure. Workload identity federation exchanges a trusted external assertion. Certificate credentials are preferable to shared secrets. Client credentials produce roles, not scp.",
-    request: { grant: "client_credentials", preferred_credentials: ["managed_identity", "workload_identity_federation", "certificate"], last_resort: "client_secret", scope: "api://inventory-mcp/.default" },
-    response: { token_type: "Bearer", audience: "api://inventory-mcp", application_claim: "roles", roles: ["Mcp.Tools.Read"], user_present: false },
+    request: { grant_type: "client_credentials", preferred_credentials: ["managed_identity", "workload_identity_federation", "certificate"], last_resort: "client_secret", scope: `${mcpAudience}/.default`, resource: mcpResource },
+    response: { token_type: "Bearer", access_token: exampleTokens.appMcp, expires_in: 3600, audience: mcpAudience, application_claim: "roles", roles: ["Mcp.Tools.Read"], user_present: false },
     http: { request: ["confidential host → Entra token endpoint"], response: ["application access token; no user delegation"] },
     stdio: { request: ["host obtains credential outside JSON-RPC"], response: ["do not pass credentials as tool arguments"] }
   },
@@ -100,7 +164,7 @@ const lifecycle = [
     guarantee: "Invalid tokens receive 401; valid tokens with insufficient permission receive 403.",
     ownership: "Signature and key validation, issuer, audience, tenant, lifetime, claims policy, replay defenses, and principal binding.",
     expert: "Validate signature with trusted Entra metadata/JWKS plus iss, aud, tid, nbf, and exp. Use scp for delegated permissions or roles for application permissions. Do not treat one as the other.",
-    request: { jwt_checks: ["signature", "issuer", "audience", "tenant", "not_before", "expiry"], permission_branch: { delegated: "scp contains mcp.tools.read", application: "roles contains Mcp.Tools.Read" }, session_binding: ["tid", "oid/sub", "client_id"] },
+    request: { authorization_material: "fake delegated JWT from Step 2 HTTP Authorization header", decoded_claims: { aud: mcpAudience, iss: `https://login.microsoftonline.com/${exampleTenantId}/v2.0`, tid: exampleTenantId, oid: exampleUserObjectId, azp: exampleClientId, scp: "mcp.tools.read inventory.read", nbf: 1790002800, exp: 1790006400 }, jwt_checks: ["signature", "issuer", "audience", "tenant", "not_before", "expiry"], permission_branch: { delegated: "scp contains mcp.tools.read", application: "roles contains Mcp.Tools.Read" }, session_binding: ["tid", "oid/sub", "azp/appid"] },
     response: { valid_and_allowed: "continue", invalid_token: "401 + WWW-Authenticate", valid_but_insufficient: "403", principal_changed_for_session: "reject and require a new session" },
     http: httpMeta(["validate before JSON-RPC dispatch"]),
     stdio: { request: ["derive local principal from process boundary"], response: ["bind local principal/configuration to session"] }
@@ -124,7 +188,7 @@ const lifecycle = [
     guarantee: "MCP defines the operation shape, not permission to perform it.",
     ownership: "Least privilege, tool-level policy, tenant isolation, user consent, and downstream authorization.",
     expert: "Return 401 only when authentication is absent or invalid. Return 403 when the token is valid but lacks required scope, role, ownership, or policy approval.",
-    request: { principal: { tenant: "tenant-north", subject: "usr-42", token_kind: "delegated", scp: ["mcp.tools.read", "inventory.read"] }, action: { tool: "inventory.lookup", sku: "MCP-2048" } },
+    request: { principal: { tid: exampleTenantId, oid: exampleUserObjectId, azp: exampleClientId, token_kind: "delegated", scp: ["mcp.tools.read", "inventory.read"] }, action: { tool: "inventory.lookup", sku: "MCP-2048" } },
     response: { decision: "allow", checks: { scope_or_role: true, tenant: true, tool_policy: true, downstream_acl: true } },
     http: httpMeta(["authorization precedes tool execution"]),
     stdio: { request: ["server-side policy evaluation"], response: ["allow → continue; deny → JSON-RPC error"] }
@@ -148,8 +212,8 @@ const lifecycle = [
     guarantee: "MCP stops at the server boundary and does not define downstream identity.",
     ownership: "OBO configuration, separate audiences, consent, least-privilege scopes, caching, and downstream ACLs.",
     expert: "Never pass the MCP access token through to another API. Use OBO for delegated user context. For app-only work, acquire a separate client-credential token for the downstream resource.",
-    request: { grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", requested_token_use: "on_behalf_of", assertion: "<inbound-user-token>", scope: "api://inventory-api/Inventory.Read" },
-    response: { downstream_token: "<separate-access-token>", audience: "api://inventory-api", subject: "usr-42", forwarded_mcp_token: false },
+    request: { grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", requested_token_use: "on_behalf_of", assertion: exampleTokens.delegatedMcp, client_assertion: "signed confidential-client assertion or managed identity credential", scope: "api://inventory-api/Inventory.Read" },
+    response: { token_type: "Bearer", access_token: exampleTokens.downstreamInventory, audience: "api://inventory-api", subject: exampleUserObjectId, forwarded_mcp_token: false },
     http: { request: ["server → Entra token endpoint", "assertion handled only by trusted server code"], response: ["new audience-bound token → downstream API"] },
     stdio: { request: ["same downstream identity decision"], response: ["transport does not change token-exchange policy"] }
   },
@@ -173,9 +237,9 @@ const lifecycle = [
     guarantee: "Version-specific transport lifecycle guidance.",
     ownership: "Draining work, clearing principal-bound session state, closing streams, and audit finalization.",
     expert: "The modern DELETE request still carries Authorization. Releasing protocol state does not revoke Entra tokens; token caches and account sign-out are separate host responsibilities.",
-    request: { method: "DELETE", path: "/mcp", headers: { "MCP-Session-Id": "s_7f3c9a", Authorization: "Bearer <access-token>" } },
-    response: { status: "204 No Content", result: "Principal-bound MCP session state released" },
-    legacyRequest: { action: "close EventSource", endpoint: "/sse", authorization: "Bearer <access-token>" },
+    request: { method: "DELETE", path: "/mcp", headers: { "Mcp-Session-Id": exampleSessionId, Authorization: "fake delegated access token from Step 2" } },
+    response: { status: "200 OK, 204 No Content, or 405 Method Not Allowed", result: "Session released when the server supports client-initiated termination" },
+    legacyRequest: { action: "close EventSource", endpoint: "/sse", authorization: "fake delegated access token from Step 2" },
     legacyResponse: { result: "SSE connection closed; client discards legacy session endpoint" },
     http: httpMeta(["modern: DELETE /mcp; legacy: close GET /sse"]),
     stdio: { request: ["close child stdin", "wait for graceful exit"], response: ["process exits; collect stderr diagnostics"] }
@@ -189,7 +253,7 @@ const risks = [
 });
 console.log(req.headers.authorization);`, secure: `const token = await tokenProvider.get();
 await transport.post(message, {
-  headers: { Authorization: \`Bearer \${token}\` }
+  headers: { authorization: token.asHeaderValue() }
 });
 logger.info({ requestId });`, control: "Keep tokens header-only; use short lifetimes, secure caches, redaction, rotation, and audience binding.", verify: "Send a request and inspect payloads, traces, errors, and session storage; no raw token should appear outside the protected transport.", source: "MCP01-2025-Token-Mismanagement-and-Secret-Exposure.md" },
   { id: "MCP02", title: "Privilege Escalation via Scope Creep", boundary: "identity", affected: "Consent ↔ scopes/roles ↔ tool policy", impact: "A low-risk workflow can inherit unrelated read, write, or administrative authority.", insecure: `if (claims.roles.includes("Mcp.User")) {
@@ -290,8 +354,9 @@ function onboardingExamples() {
             auth: {
               type: "entra",
               tokenProvider: "work-account",
-              authority: "https://login.microsoftonline.com/tenant-north",
-              scopes: ["api://inventory-mcp/mcp.tools.read"]
+              authority: `https://login.microsoftonline.com/${exampleTenantId}`,
+              resource: mcpResource,
+              scopes: [`${mcpAudience}/mcp.tools.read`]
             },
             allowedOrigins: ["https://inventory.example.com"],
             timeoutMs: 30000,
@@ -310,8 +375,9 @@ function onboardingExamples() {
   // MSAL delegated flow, managed identity, workload
   // identity federation, or certificate credential.
   return entra.acquireToken({
-    resource: "api://inventory-mcp",
-    scopes: ["mcp.tools.read"]
+    authority: "https://login.microsoftonline.com/${exampleTenantId}",
+    resource: "${mcpResource}",
+    scopes: ["${mcpAudience}/mcp.tools.read"]
   });
 };
 

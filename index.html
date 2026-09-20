@@ -306,7 +306,7 @@
       <ol class="entra-flow" aria-label="Microsoft Entra ID protected MCP flow">
         <li><span>01</span><div><strong>Discover</strong><small>401 challenge → RFC 9728 protected-resource metadata → Entra authority metadata.</small></div></li>
         <li><span>02</span><div><strong>Acquire</strong><small>MSAL + PKCE for users; managed/workload identity, certificate, or credentials for apps.</small></div></li>
-        <li><span>03</span><div><strong>Present</strong><small><code>Authorization: Bearer …</code> accompanies every Streamable HTTP request.</small></div></li>
+        <li><span>03</span><div><strong>Present</strong><small><code>Authorization</code> carries a bearer access token on every Streamable HTTP request.</small></div></li>
         <li><span>04</span><div><strong>Validate</strong><small>Verify signature, issuer, audience, tenant, lifetime, then <code>scp</code> or <code>roles</code>.</small></div></li>
         <li><span>05</span><div><strong>Bind</strong><small>Bind the validated principal to the MCP session; reject identity changes for that session.</small></div></li>
         <li><span>06</span><div><strong>Delegate safely</strong><small>For downstream APIs, use OBO when user context is required—never pass the MCP token through.</small></div></li>
