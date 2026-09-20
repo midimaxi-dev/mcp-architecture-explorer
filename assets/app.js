@@ -3,9 +3,9 @@
 const exampleTenantId = "11111111-2222-3333-4444-555555555555";
 const exampleClientId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
 const exampleUserObjectId = "99999999-8888-7777-6666-555555555555";
-const exampleSessionId = "1868a90c-12d3-4d5e-8f90-1a2b3c4d5e6f";
 const mcpResource = "https://inventory.example.com/mcp";
-const mcpAudience = "api://inventory-mcp";
+const mcpAudience = "77777777-6666-5555-4444-333333333333";
+const currentProtocolVersion = "2026-07-28";
 
 function base64UrlJson(value) {
   return btoa(JSON.stringify(value)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -41,11 +41,10 @@ const exampleTokens = {
     iat: 1790002800,
     nbf: 1790002800,
     exp: 1790006400,
-    appid: "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
     azp: "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
     roles: ["Mcp.Tools.Read"],
     tid: exampleTenantId,
-    ver: "1.0"
+    ver: "2.0"
   }),
   downstreamInventory: fakeJwt({
     aud: "api://inventory-api",
@@ -64,33 +63,56 @@ const exampleTokens = {
 
 const exampleBearerHeader = "HTTP bearer access-token header uses the fake access_token from Step 2";
 
+const requestMeta = (extra = {}) => ({
+  "io.modelcontextprotocol/protocolVersion": currentProtocolVersion,
+  "io.modelcontextprotocol/clientCapabilities": {
+    elicitation: { form: {}, url: {} }
+  },
+  "io.modelcontextprotocol/clientInfo": {
+    name: "atlas-desktop",
+    version: "2.4.0"
+  },
+  ...extra
+});
+
+const completeResult = (result) => ({
+  ...result,
+  resultType: "complete",
+  _meta: {
+    "io.modelcontextprotocol/serverInfo": {
+      name: "inventory-mcp",
+      version: "2.0.0"
+    }
+  }
+});
+
 const versions = {
   modern: {
-    value: "2025-06-18",
-    name: "Modern Streamable HTTP",
+    value: currentProtocolVersion,
+    name: "Current Streamable HTTP",
     title: "Streamable HTTP",
-    subtitle: "Single /mcp endpoint",
-    chip: "2025",
-    summary: "2025-06-18: one /mcp endpoint accepts POST and GET; SSE is optional.",
-    requestMeta: ["POST /mcp HTTP/1.1", "Accept: application/json, text/event-stream", "MCP-Protocol-Version: 2025-06-18", exampleBearerHeader, `Mcp-Session-Id: ${exampleSessionId} after initialize`],
-    responseMeta: ["HTTP/1.1 200 OK", "Content-Type: application/json or text/event-stream", `Mcp-Session-Id: ${exampleSessionId} on initialize response`]
+    subtitle: "Stateless POST /mcp",
+    chip: "2026",
+    summary: "2026-07-28: stateless POST requests; request-scoped SSE is optional.",
+    requestMeta: ["POST /mcp HTTP/1.1", "Content-Type: application/json", "Accept: application/json, text/event-stream", "MCP-Protocol-Version: 2026-07-28", "Mcp-Method mirrors the JSON-RPC method", exampleBearerHeader],
+    responseMeta: ["HTTP/1.1 200 OK", "Content-Type: application/json or text/event-stream", "no protocol session identifier"]
   },
   legacy: {
-    value: "2024-11-05",
-    name: "Legacy HTTP+SSE",
-    title: "HTTP + SSE",
-    subtitle: "Separate /sse + message endpoint",
-    chip: "2024",
-    summary: "2024-11-05: the client opens /sse, receives an endpoint event, then POSTs JSON-RPC to that session URI.",
-    requestMeta: [`POST /messages?sessionId=${exampleSessionId} HTTP/1.1`, exampleBearerHeader, "SSE channel already open at GET /sse"],
-    responseMeta: ["event: message", "data: <JSON-RPC response>", "delivered on the SSE channel"]
+    value: "2025-06-18",
+    name: "Legacy initialization-based Streamable HTTP",
+    title: "Legacy Streamable HTTP",
+    subtitle: "Stateful initialization model",
+    chip: "2025",
+    summary: "2025-06-18: initialize a session, then send POST/GET requests with its session id.",
+    requestMeta: ["POST /mcp HTTP/1.1", "Content-Type: application/json", "Accept: application/json, text/event-stream", "MCP-Protocol-Version: 2025-06-18", "Mcp-Session-Id: 1868a90c-12d3-4d5e-8f90-1a2b3c4d5e6f after initialize", exampleBearerHeader],
+    responseMeta: ["HTTP/1.1 200 OK", "Content-Type: application/json or text/event-stream", "Mcp-Session-Id may be assigned on initialize"]
   }
 };
 
 const httpMeta = (extra = []) => ({
   request: [...versions.modern.requestMeta, ...extra],
   response: versions.modern.responseMeta,
-  legacyRequest: [...versions.legacy.requestMeta, ...extra],
+  legacyRequest: versions.legacy.requestMeta,
   legacyResponse: versions.legacy.responseMeta
 });
 
@@ -98,76 +120,86 @@ const lifecycle = [
   {
     title: "Discover the protected resource", short: "Resource metadata", kind: "identity", phase: "Trust",
     summary: "The client learns that the MCP endpoint is protected, follows the RFC 9728 resource_metadata URL, and discovers the permitted Microsoft Entra authorization server.",
-    legacySummary: "Authorization was not standardized by MCP 2024-11-05. A protected legacy deployment must document its external OAuth layer; use the same strict discovery pattern when the server supports it.",
+    legacySummary: "MCP 2025-06-18 also standardizes protected-resource discovery for HTTP authorization.",
     route: ["Client", "MCP Server", "Entra ID"],
-    guarantee: "2025-06-18 defines protected-resource discovery for HTTP authorization.",
-    legacyGuarantee: "The legacy transport defines message movement, not an interoperable authorization discovery flow.",
+    guarantee: "Current HTTP authorization uses RFC 9728 protected-resource metadata and authorization-server discovery.",
+    legacyGuarantee: "The 2025 authorization profile also uses protected-resource discovery.",
     ownership: "HTTPS, trusted metadata URLs, tenant allowlists, and rejecting untrusted authorities.",
     expert: "A 401 response points to protected-resource metadata. Validate its resource identifier and authorization_servers before following Entra metadata; never accept an attacker-selected authority.",
-    request: { method: "POST", path: "/mcp", authorization: null },
-    response: { status: 401, www_authenticate: { scheme: "Bearer", resource_metadata: "https://inventory.example.com/.well-known/oauth-protected-resource" }, metadata: { resource: mcpResource, authorization_servers: [`https://login.microsoftonline.com/${exampleTenantId}/v2.0`], scopes_supported: ["mcp.tools.read", "inventory.read"] } },
-    http: httpMeta(["initial request intentionally has no token"]),
+    request: { jsonrpc: "2.0", id: 1, method: "server/discover", params: { _meta: requestMeta() } },
+    response: { status: 401, www_authenticate: { scheme: "Bearer", resource_metadata: "https://inventory.example.com/.well-known/oauth-protected-resource/mcp" }, metadata: { resource: mcpResource, authorization_servers: [`https://login.microsoftonline.com/${exampleTenantId}/v2.0`], scopes_supported: ["mcp.tools.read", "inventory.read"] } },
+    legacyRequest: { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "atlas-desktop", version: "2.4.0" } } },
+    http: { request: ["POST /mcp HTTP/1.1", "Content-Type: application/json", "Accept: application/json, text/event-stream", "MCP-Protocol-Version: 2026-07-28", "Mcp-Method: server/discover", "initial request intentionally has no token"], response: ["HTTP/1.1 401 Unauthorized", "WWW-Authenticate points to protected-resource metadata"], legacyRequest: ["POST /mcp HTTP/1.1", "Content-Type: application/json", "initial initialize request intentionally has no token"], legacyResponse: ["HTTP/1.1 401 Unauthorized"] },
     stdio: { request: ["launch local server process"], response: ["use OS/process trust; no HTTP authorization discovery"] }
   },
   {
     title: "Acquire a delegated token", short: "MSAL + PKCE", kind: "identity", phase: "Trust",
-    summary: "A public client uses MSAL Authorization Code + PKCE to sign in a user and request least-privilege delegated scopes for the MCP resource.",
+    summary: "For a signed-in user, a public client uses MSAL Authorization Code + PKCE to request least-privilege delegated scopes for the MCP resource.",
     route: ["Client", "Browser", "Entra ID"],
     guarantee: "The modern authorization profile requires PKCE and resource-bound access tokens.",
     ownership: "MSAL configuration, exact redirect URIs, state/nonce checks, consent UX, cache protection, and silent renewal.",
-    expert: "Use acquireTokenSilent first, then an interactive MSAL flow when required. MSAL prompt: \"select_account\" is an optional Entra /authorize account-picker hint, not an MCP prompt or token request field. Request the MCP API scope and resource; never expose a client secret in a browser or native public client. Demo JWTs are intentionally fake and non-secret.",
-    request: { msal: "acquireTokenRedirect", authority: `https://login.microsoftonline.com/${exampleTenantId}`, clientId: exampleClientId, redirectUri: "http://localhost:53000/auth/callback", scopes: [`${mcpAudience}/mcp.tools.read`, `${mcpAudience}/inventory.read`], pkce: { codeChallengeMethod: "S256" }, extraQueryParameters: { resource: mcpResource }, prompt: "select_account" },
-    response: { token_type: "Bearer", access_token: exampleTokens.delegatedMcp, expires_in: 3600, audience: mcpAudience, delegated_claim: "scp", scope: "mcp.tools.read inventory.read", refresh_token: "stored in the MSAL cache; never copied into MCP messages" },
+    expert: "Use acquireTokenSilent first, then an interactive MSAL flow when required. Current MSAL Browser uses isMcp plus a first-class resource field so RFC 8707 reaches both authorization and token requests. prompt: \"select_account\" is an optional account-picker hint, not an MCP prompt. Demo JWTs are intentionally fake; Entra v2 tokens commonly use the resource app's client ID as aud.",
+    request: { library: "@azure/msal-browser v5+", configuration: { auth: { authority: `https://login.microsoftonline.com/${exampleTenantId}`, clientId: exampleClientId, redirectUri: "http://localhost:53000/auth/callback", isMcp: true } }, tokenRequest: { method: "acquireTokenRedirect", scopes: ["mcp.tools.read", "inventory.read"], resource: mcpResource, prompt: "select_account" }, pkce: "generated and validated by MSAL" },
+    response: { accessToken: exampleTokens.delegatedMcp, scopes: ["mcp.tools.read", "inventory.read"], expiresOn: "2026-09-21T16:00:00.000Z", account: { tenantId: exampleTenantId, localAccountId: exampleUserObjectId, username: "avery.north@example.com" }, cache: "MSAL manages refresh tokens internally" },
     http: { request: ["browser → Entra /authorize", "code_challenge_method=S256", `resource=${mcpResource}`, "prompt=select_account is optional; omit when silent/SSO account reuse is preferred"], response: ["client → Entra /token", "code_verifier + authorization code + resource", "prompt is not sent to /token"] },
     stdio: { request: ["not an MCP stdio exchange"], response: ["credentials should come from the host environment when needed"] }
   },
   {
     title: "Authenticate a confidential host", short: "Workload identity", kind: "identity", phase: "Trust",
-    summary: "A daemon or hosted app acquires an application token. Prefer managed identity or workload identity federation, then certificates; use a client secret only when stronger options are unavailable.",
+    summary: "As an alternative to delegated user access, a daemon or hosted app acquires an application token. Prefer managed identity or workload identity federation, then certificates; use a client secret only when stronger options are unavailable.",
     route: ["Host / App", "Entra ID", "MCP Server"],
     guarantee: "MCP transports the request; Entra defines the confidential-client credential and token grant.",
     ownership: "Credential lifecycle, federation trust, certificate rotation, application permissions, and tenant restrictions.",
     expert: "Managed identity avoids deployable credentials in Azure. Workload identity federation exchanges a trusted external assertion. Certificate credentials are preferable to shared secrets. Client credentials produce roles, not scp.",
-    request: { grant_type: "client_credentials", preferred_credentials: ["managed_identity", "workload_identity_federation", "certificate"], last_resort: "client_secret", scope: `${mcpAudience}/.default`, resource: mcpResource },
-    response: { token_type: "Bearer", access_token: exampleTokens.appMcp, expires_in: 3600, audience: mcpAudience, application_claim: "roles", roles: ["Mcp.Tools.Read"], user_present: false },
+    request: { grant_type: "client_credentials", preferred_credentials: ["managed_identity", "workload_identity_federation", "certificate"], last_resort: "client_secret", scope: `${mcpResource}/.default`, resource: mcpResource },
+    response: { token_type: "Bearer", access_token: exampleTokens.appMcp, expires_in: 3600, ext_expires_in: 3600 },
     http: { request: ["confidential host → Entra token endpoint"], response: ["application access token; no user delegation"] },
     stdio: { request: ["host obtains credential outside JSON-RPC"], response: ["do not pass credentials as tool arguments"] }
   },
   {
-    title: "Initialize & negotiate", short: "Handshake", kind: "request", phase: "Handshake",
-    summary: "The authenticated client declares the selected protocol version, capabilities, and implementation identity. The server returns a compatible version and capabilities.",
+    title: "Discover server capabilities", short: "Server discover", kind: "request", phase: "Discovery",
+    summary: "The client calls server/discover to learn supported protocol versions, server capabilities, and implementation identity before normal work.",
+    legacySummary: "In 2025-06-18, the client instead sends initialize, negotiates one protocol version and capability set, then sends notifications/initialized.",
     route: ["Host", "Client", "Transport", "Server"],
-    guarantee: "A versioned capability handshake before normal protocol operations.",
-    ownership: "Selecting a supported version and failing explicitly on incompatibility.",
-    expert: "Authorization happens at the HTTP layer before parsing JSON-RPC. Tokens are not copied into initialize params or synchronized into MCP session state.",
-    request: { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: { roots: { listChanged: true }, sampling: {} }, clientInfo: { name: "atlas-desktop", version: "2.4.0" } } },
-    response: { jsonrpc: "2.0", id: 1, result: { protocolVersion: "2025-06-18", capabilities: { tools: { listChanged: true }, resources: { subscribe: true } }, serverInfo: { name: "inventory-mcp", version: "1.8.2" } } },
-    http: httpMeta(),
+    guarantee: "Current MCP exposes server/discover and carries version plus client capabilities on each request.",
+    legacyGuarantee: "Legacy MCP negotiates version and capabilities during initialization.",
+    ownership: "Selecting a compatible version, recognizing capabilities, and failing explicitly on incompatibility.",
+    expert: "Current MCP is stateless: there is no initialize handshake or protocol session. The required _meta object is inside params, while selected fields are mirrored into HTTP headers.",
+    request: { jsonrpc: "2.0", id: 1, method: "server/discover", params: { _meta: requestMeta() } },
+    response: { jsonrpc: "2.0", id: 1, result: completeResult({ supportedVersions: [currentProtocolVersion, "2025-11-25"], capabilities: { tools: { listChanged: true }, resources: { listChanged: true }, prompts: { listChanged: true } }, instructions: "Use inventory.lookup for approved product stock checks.", ttlMs: 3600000, cacheScope: "public" }) },
+    legacyRequest: { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: { elicitation: {} }, clientInfo: { name: "atlas-desktop", version: "2.4.0" } } },
+    legacyResponse: { jsonrpc: "2.0", id: 1, result: { protocolVersion: "2025-06-18", capabilities: { tools: { listChanged: true }, resources: { subscribe: true }, prompts: { listChanged: true } }, serverInfo: { name: "inventory-mcp", version: "1.8.2" } } },
+    http: { request: [...versions.modern.requestMeta, "Mcp-Method: server/discover"], response: versions.modern.responseMeta, legacyRequest: ["POST /mcp HTTP/1.1", "Content-Type: application/json", "Accept: application/json, text/event-stream", exampleBearerHeader, "initialize request has no Mcp-Session-Id"], legacyResponse: ["HTTP/1.1 200 OK", "Mcp-Session-Id may be assigned with InitializeResult"] },
     stdio: { request: ["stdin → server process", "one JSON-RPC message per line"], response: ["stdout ← server process", "no HTTP headers"] }
   },
   {
-    title: "Complete initialization", short: "Initialized", kind: "notification", phase: "Handshake",
-    summary: "The client sends notifications/initialized with no id. The transport acknowledges receipt, but there is no JSON-RPC response.",
-    route: ["Client", "Transport", "Server"],
-    guarantee: "A clear transition from negotiation into normal protocol operation.",
-    ownership: "Waiting for initialize to succeed before regular requests.",
-    expert: "Every HTTP request—including this notification—carries a current access token. A 202 response is HTTP transport acknowledgement, not a JSON-RPC response.",
-    request: { jsonrpc: "2.0", method: "notifications/initialized" },
-    response: { http_status: "202 Accepted", jsonrpc_response: null },
-    http: httpMeta(["notification has no JSON-RPC id"]),
-    stdio: { request: ["stdin → server process", "notification has no id"], response: ["no stdout response"] }
+    title: "Attach per-request metadata", short: "_meta envelope", kind: "metadata", phase: "Routing",
+    summary: "Every current request declares its protocol version and relevant client capabilities in params._meta; optional namespaced fields carry implementation and tracing metadata.",
+    legacySummary: "In 2025-06-18, version and capabilities came from initialize rather than a required per-request _meta object.",
+    route: ["Client", "_meta", "Transport", "Server"],
+    guarantee: "A namespaced extension point plus required per-request protocolVersion and clientCapabilities metadata.",
+    legacyGuarantee: "Legacy requests may carry optional _meta, but do not use the current required per-request fields.",
+    ownership: "Sending accurate metadata, rejecting body/header mismatches, and never placing credentials or authorization decisions in _meta.",
+    expert: "_meta is under params on requests and notifications and can also appear on results. ClientInfo and serverInfo are self-reported display/debug data, never security evidence.",
+    request: { jsonrpc: "2.0", id: 2, method: "tools/list", params: { _meta: requestMeta({ "com.example/traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01" }) } },
+    response: { jsonrpc: "2.0", id: 2, result: completeResult({ tools: [] }) },
+    legacyRequest: { jsonrpc: "2.0", method: "notifications/initialized" },
+    legacyResponse: { http_status: "202 Accepted", jsonrpc_response: null },
+    http: httpMeta(["Mcp-Method: tools/list", "body is authoritative; mirrored routing headers must match"]),
+    stdio: { request: ["same JSON-RPC body over stdin"], response: ["same JSON-RPC response over stdout"] }
   },
   {
-    title: "Validate and bind the principal", short: "JWT validation", kind: "policy", phase: "Trust",
-    summary: "Before processing a request, the server validates the JWT and binds its principal to the MCP session. A later request cannot silently switch identities inside that session.",
-    route: ["Transport", "JWT Validator", "Session", "Policy"],
+    title: "Validate the request principal", short: "JWT validation", kind: "policy", phase: "Trust",
+    summary: "Before dispatching each protected HTTP request, the server validates the access token and derives the caller principal used for authorization.",
+    legacySummary: "The server validates each token and, when using a 2025 protocol session, must also prevent a session identifier from being reused by a different principal.",
+    route: ["Transport", "JWT Validator", "Principal", "Policy"],
     guarantee: "Invalid tokens receive 401; valid tokens with insufficient permission receive 403.",
-    ownership: "Signature and key validation, issuer, audience, tenant, lifetime, claims policy, replay defenses, and principal binding.",
+    ownership: "Signature and key validation, issuer, audience, tenant, lifetime, claims policy, replay defenses, and request authorization.",
     expert: "Validate signature with trusted Entra metadata/JWKS plus iss, aud, tid, nbf, and exp. Use scp for delegated permissions or roles for application permissions. Do not treat one as the other.",
-    request: { token_source: "HTTP bearer access-token header", token_value: "uses the fake delegated access_token issued in Step 2; it is not part of the JSON-RPC body", decoded_claims: { aud: mcpAudience, iss: `https://login.microsoftonline.com/${exampleTenantId}/v2.0`, tid: exampleTenantId, oid: exampleUserObjectId, azp: exampleClientId, scp: "mcp.tools.read inventory.read", nbf: 1790002800, exp: 1790006400 }, jwt_checks: ["signature", "issuer", "audience", "tenant", "not_before", "expiry"], permission_branch: { delegated: "scp contains mcp.tools.read", application: "roles contains Mcp.Tools.Read" }, session_binding: ["tid", "oid/sub", "azp/appid"] },
-    response: { valid_and_allowed: "continue", invalid_token: "401 + WWW-Authenticate", valid_but_insufficient: "403", principal_changed_for_session: "reject and require a new session" },
+    request: { transport_credential: { header: "Authorization", scheme: "Bearer", source: "fake delegated access_token issued in Step 2", included_in_jsonrpc: false }, decoded_claims: { aud: mcpAudience, iss: `https://login.microsoftonline.com/${exampleTenantId}/v2.0`, tid: exampleTenantId, oid: exampleUserObjectId, azp: exampleClientId, scp: "mcp.tools.read inventory.read", nbf: 1790002800, exp: 1790006400 }, jwt_checks: ["signature", "issuer", "audience", "tenant", "not_before", "expiry"], permission_branch: { delegated: "scp contains mcp.tools.read", application: "roles contains Mcp.Tools.Read" } },
+    response: { valid_and_allowed: "dispatch request", invalid_token: "401 + WWW-Authenticate", valid_but_insufficient: "403" },
     http: httpMeta(["validate before JSON-RPC dispatch"]),
-    stdio: { request: ["derive local principal from process boundary"], response: ["bind local principal/configuration to session"] }
+    stdio: { request: ["derive local authority from process and environment boundaries"], response: ["apply host and server policy to the request"] }
   },
   {
     title: "Discover available tools", short: "Tools list", kind: "request", phase: "Discovery",
@@ -175,10 +207,10 @@ const lifecycle = [
     route: ["Host", "Client", "Transport", "Server"],
     guarantee: "A standard discovery method and machine-readable input schemas.",
     ownership: "Tool allowlists, description integrity, schema validation, and approval policy.",
-    expert: "An access token is repeated on this request. Session ids identify protocol state; they are not authentication credentials and never replace the bearer token.",
-    request: { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
-    response: { jsonrpc: "2.0", id: 2, result: { tools: [{ name: "inventory.lookup", description: "Returns stock for an approved SKU.", inputSchema: { type: "object", properties: { sku: { type: "string", pattern: "^[A-Z0-9-]{3,24}$" } }, required: ["sku"], additionalProperties: false } }] } },
-    http: httpMeta(),
+    expert: "Current MCP includes protocol version and client capabilities in params._meta on this request. The HTTP access token is still repeated separately at the transport layer.",
+    request: { jsonrpc: "2.0", id: 3, method: "tools/list", params: { _meta: requestMeta() } },
+    response: { jsonrpc: "2.0", id: 3, result: completeResult({ tools: [{ name: "inventory.lookup", description: "Returns stock for an approved SKU.", inputSchema: { type: "object", properties: { sku: { type: "string", pattern: "^[A-Z0-9-]{3,24}$" }, warehouse: { type: "string", enum: ["east", "west"] } }, required: ["sku"], additionalProperties: false }, outputSchema: { type: "object", properties: { sku: { type: "string" }, available: { type: "integer", minimum: 0 } }, required: ["sku", "available"], additionalProperties: false } }] }) },
+    http: httpMeta(["Mcp-Method: tools/list"]),
     stdio: { request: ["stdin → server process"], response: ["stdout ← server process"] }
   },
   {
@@ -199,11 +231,27 @@ const lifecycle = [
     route: ["Host", "Client", "Transport", "Server"],
     guarantee: "A correlated request id and standard tool invocation shape.",
     ownership: "Approval, argument validation, policy enforcement, timeouts, and side-effect controls.",
-    expert: "Never add tokens to params, _meta, tool arguments, model context, logs, or MCP session storage. Re-authenticate each HTTP request at the transport boundary.",
-    request: { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "inventory.lookup", arguments: { sku: "MCP-2048", warehouse: "east" } } },
-    response: { jsonrpc: "2.0", id: 3, result: { content: [{ type: "text", text: "MCP-2048: 37 units available in east." }], structuredContent: { sku: "MCP-2048", available: 37 }, isError: false } },
-    http: httpMeta(["token is header-only; not in this JSON-RPC body"]),
+    expert: "Never add tokens to params, _meta, tool arguments, model context, logs, or application state. Authenticate each protected HTTP request at the transport boundary.",
+    request: { jsonrpc: "2.0", id: 4, method: "tools/call", params: { _meta: requestMeta(), name: "inventory.lookup", arguments: { sku: "MCP-2048", warehouse: "east" } } },
+    response: { jsonrpc: "2.0", id: 4, result: completeResult({ content: [{ type: "text", text: "MCP-2048: 37 units available in east." }], structuredContent: { sku: "MCP-2048", available: 37 }, isError: false }) },
+    http: httpMeta(["Mcp-Method: tools/call", "Mcp-Name: inventory.lookup", "token is header-only; not in this JSON-RPC body"]),
     stdio: { request: ["stdin → server process"], response: ["stdout ← server process"] }
+  },
+  {
+    title: "Request additional user input", short: "MRTR + elicitation", kind: "interaction", phase: "Execution",
+    summary: "If a tool, prompt, or resource read needs more input, the server returns input_required; the client gathers approved input and retries the original operation as a new request.",
+    legacySummary: "Legacy versions allowed a server-initiated elicitation/create request. Current MCP replaces that stateful pattern with a multi round-trip result and retry.",
+    route: ["Server", "Client", "User", "Client", "Server"],
+    guarantee: "A stateless multi round-trip pattern for elicitation and other supported client input.",
+    legacyGuarantee: "Legacy elicitation is a server-to-client JSON-RPC request gated by the client's advertised capability.",
+    ownership: "Rendering consent, validating form data, protecting opaque requestState integrity, expiry, principal binding, and replay handling.",
+    expert: "Form elicitation must not request passwords, API keys, access tokens, or payment credentials. Use URL mode for sensitive out-of-band interactions.",
+    request: { jsonrpc: "2.0", id: 4, method: "tools/call", params: { _meta: requestMeta(), name: "inventory.lookup", arguments: { sku: "MCP-2048" } } },
+    response: { jsonrpc: "2.0", id: 4, result: { resultType: "input_required", inputRequests: { warehouse: { method: "elicitation/create", params: { mode: "form", message: "Choose a warehouse", requestedSchema: { type: "object", properties: { warehouse: { type: "string", enum: ["east", "west"] } }, required: ["warehouse"] } } } }, requestState: "opaque-integrity-protected-state" } },
+    legacyRequest: { jsonrpc: "2.0", id: "elicit-1", method: "elicitation/create", params: { message: "Choose a warehouse", requestedSchema: { type: "object", properties: { warehouse: { type: "string", enum: ["east", "west"] } }, required: ["warehouse"] } } },
+    legacyResponse: { jsonrpc: "2.0", id: "elicit-1", result: { action: "accept", content: { warehouse: "east" } } },
+    http: httpMeta(["Mcp-Method: tools/call", "Mcp-Name: inventory.lookup", "client retries with inputResponses and requestState"]),
+    stdio: { request: ["same independent request over stdin"], response: ["input_required result over stdout; retry is a new request"] }
   },
   {
     title: "Call downstream on behalf of the user", short: "OBO / downstream", kind: "internal", phase: "Execution",
@@ -212,8 +260,8 @@ const lifecycle = [
     guarantee: "MCP stops at the server boundary and does not define downstream identity.",
     ownership: "OBO configuration, separate audiences, consent, least-privilege scopes, caching, and downstream ACLs.",
     expert: "Never pass the MCP access token through to another API. Use OBO for delegated user context. For app-only work, acquire a separate client-credential token for the downstream resource.",
-    request: { grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", requested_token_use: "on_behalf_of", assertion: exampleTokens.delegatedMcp, client_assertion: "signed confidential-client assertion or managed identity credential", scope: "api://inventory-api/Inventory.Read" },
-    response: { token_type: "Bearer", access_token: exampleTokens.downstreamInventory, audience: "api://inventory-api", subject: exampleUserObjectId, forwarded_mcp_token: false },
+    request: { grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", requested_token_use: "on_behalf_of", assertion: exampleTokens.delegatedMcp, client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer", client_assertion: "signed confidential-client assertion", scope: "api://inventory-api/Inventory.Read" },
+    response: { token_type: "Bearer", access_token: exampleTokens.downstreamInventory, expires_in: 3600, ext_expires_in: 3600, scope: "Inventory.Read" },
     http: { request: ["server → Entra token endpoint", "assertion handled only by trusted server code"], response: ["new audience-bound token → downstream API"] },
     stdio: { request: ["same downstream identity decision"], response: ["transport does not change token-exchange policy"] }
   },
@@ -226,23 +274,24 @@ const lifecycle = [
     expert: "Use 401 for missing/invalid tokens and include WWW-Authenticate. Use 403 for a valid token lacking permission. Use JSON-RPC errors only after transport authentication succeeds and protocol dispatch begins.",
     request: { scenario: "valid token, missing inventory.write", required_permission: { delegated: "inventory.write", application: "Inventory.Write" } },
     response: { http_status: 403, jsonrpc_result: null, reason: "valid principal lacks required scp or roles permission" },
-    http: httpMeta(["example response overrides normal 200 with 403"]),
+    http: { request: [...versions.modern.requestMeta, "Mcp-Method: tools/call", "Mcp-Name: inventory.update"], response: ["HTTP/1.1 403 Forbidden"], legacyRequest: versions.legacy.requestMeta, legacyResponse: ["HTTP/1.1 403 Forbidden"] },
     stdio: { request: ["accepted JSON-RPC request id: 3"], response: ["JSON-RPC result or error written to stdout"] }
   },
   {
-    title: "Close the session", short: "Shutdown", kind: "lifecycle", phase: "Teardown",
-    summary: "Modern Streamable HTTP may terminate session state with DELETE. Legacy HTTP+SSE closes the event stream; stdio closes stdin and the child process.",
-    legacySummary: "The client closes the legacy SSE stream and discards the POST endpoint/session URI. MCP 2024-11-05 does not define modern DELETE session termination.",
-    route: ["Host", "Client", "Transport", "Server"],
-    guarantee: "Version-specific transport lifecycle guidance.",
-    ownership: "Draining work, clearing principal-bound session state, closing streams, and audit finalization.",
-    expert: "The modern DELETE request still carries Authorization. Releasing protocol state does not revoke Entra tokens; token caches and account sign-out are separate host responsibilities.",
-    request: { method: "DELETE", path: "/mcp", headers: { "Mcp-Session-Id": exampleSessionId, Authorization: "fake delegated access token from Step 2" } },
-    response: { status: "200 OK, 204 No Content, or 405 Method Not Allowed", result: "Session released when the server supports client-initiated termination" },
-    legacyRequest: { action: "close EventSource", endpoint: "/sse", authorization: "fake delegated access token from Step 2" },
-    legacyResponse: { result: "SSE connection closed; client discards legacy session endpoint" },
-    http: httpMeta(["modern: DELETE /mcp; legacy: close GET /sse"]),
-    stdio: { request: ["close child stdin", "wait for graceful exit"], response: ["process exits; collect stderr diagnostics"] }
+    title: "Subscribe to change notifications", short: "Subscribe + notify", kind: "stream", phase: "Operations",
+    summary: "The client opens subscriptions/listen with an explicit notification filter; the server acknowledges it and sends only the requested notifications on that long-lived request.",
+    legacySummary: "In 2025-06-18, clients used resource subscriptions and optional GET-based SSE streams rather than subscriptions/listen.",
+    route: ["Client", "Transport", "Server", "Notifications"],
+    guarantee: "A request-scoped notification stream with explicit filters and subscription identifiers in notification _meta.",
+    legacyGuarantee: "Legacy Streamable HTTP can use GET SSE and resources/subscribe with protocol session state.",
+    ownership: "Choosing filters, correlating notifications, handling disconnects, cancellation, backpressure, and re-subscribing.",
+    expert: "Current Streamable HTTP has no general GET stream or Last-Event-ID resumption. Closing the request SSE stream cancels it; stdio uses notifications/cancelled.",
+    request: { jsonrpc: "2.0", id: 9, method: "subscriptions/listen", params: { _meta: requestMeta(), notifications: { toolsListChanged: true, resourceSubscriptions: ["inventory://catalog/MCP-2048"] } } },
+    response: { jsonrpc: "2.0", method: "notifications/subscriptions/acknowledged", params: { _meta: { "io.modelcontextprotocol/subscriptionId": 9 }, notifications: { toolsListChanged: true, resourceSubscriptions: ["inventory://catalog/MCP-2048"] } } },
+    legacyRequest: { jsonrpc: "2.0", id: 9, method: "resources/subscribe", params: { uri: "inventory://catalog/MCP-2048" } },
+    legacyResponse: { jsonrpc: "2.0", id: 9, result: {} },
+    http: httpMeta(["Mcp-Method: subscriptions/listen", "HTTP response may remain open as request-scoped SSE"]),
+    stdio: { request: ["subscriptions/listen over stdin"], response: ["notifications share stdout and correlate via subscriptionId in _meta"] }
   }
 ];
 
@@ -255,7 +304,7 @@ console.log(req.headers.authorization);`, secure: `const token = await tokenProv
 await transport.post(message, {
   headers: { authorization: token.asHeaderValue() }
 });
-logger.info({ requestId });`, control: "Keep tokens header-only; use short lifetimes, secure caches, redaction, rotation, and audience binding.", verify: "Send a request and inspect payloads, traces, errors, and session storage; no raw token should appear outside the protected transport.", source: "MCP01-2025-Token-Mismanagement-and-Secret-Exposure.md" },
+logger.info({ requestId });`, control: "Keep tokens header-only; use short lifetimes, secure caches, redaction, rotation, and audience binding.", verify: "Send a request and inspect payloads, traces, errors, and application state; no raw token should appear outside the protected transport.", source: "MCP01-2025-Token-Mismanagement-and-Secret-Exposure.md" },
   { id: "MCP02", title: "Privilege Escalation via Scope Creep", boundary: "identity", affected: "Consent ↔ scopes/roles ↔ tool policy", impact: "A low-risk workflow can inherit unrelated read, write, or administrative authority.", insecure: `if (claims.roles.includes("Mcp.User")) {
   return executeAnyTool(request);
 }`, secure: `authorize(request.tool, {
@@ -286,14 +335,11 @@ spawn("lookup", ["--sku", sku], {
 return model.run({ tools: allTools });`, secure: `const evidence = asUntrustedData(document);
 const plan = await model.plan(userIntent, evidence);
 await policy.approve(userIntent, plan);`, control: "Separate instructions from data, preserve user intent, constrain tool plans, and gate sensitive transitions.", verify: "Place conflicting instructions in a retrieved document; they must not alter permissions or trigger an unapproved tool.", source: "MCP06-2025%E2%80%93Prompt-InjectionviaContextual-Payloads.md" },
-  { id: "MCP07", title: "Insufficient Authentication & Authorization", boundary: "identity", affected: "HTTP edge ↔ session ↔ policy", impact: "An unauthenticated or wrong-tenant caller can invoke tools or take over another principal's session.", insecure: `const session = sessions.get(
-  req.headers["mcp-session-id"]
-);
-return session.handle(req.body);`, secure: `const principal = await validateBearer(req);
-const session = requireOwnedSession(
-  req.headers["mcp-session-id"], principal
-);
-authorizeTool(principal, req.body.params.name);`, control: "Validate JWT signature/issuer/audience/tenant/lifetime on every request; bind principal; enforce scp or roles.", verify: "Retry with no token, wrong audience, expired token, and another user's session ID; expect 401 or 403 before tool execution.", source: "MCP07-2025%E2%80%93Insufficient-Authentication%26Authorization.md" },
+  { id: "MCP07", title: "Insufficient Authentication & Authorization", boundary: "identity", affected: "HTTP edge ↔ request ↔ policy", impact: "An unauthenticated, wrong-audience, or wrong-tenant caller can reach tools without a valid authorization decision.", insecure: `return dispatch(req.body);`, secure: `const principal = await validateBearer(req, {
+  audience: "${mcpAudience}",
+  tenant: allowedTenant
+});
+authorizeTool(principal, req.body.params.name);`, control: "Validate JWT signature/issuer/audience/tenant/lifetime on every request; derive the principal; enforce scp or roles.", verify: "Retry with no token, wrong audience, expired token, and wrong tenant; expect 401 or 403 before tool execution.", source: "MCP07-2025%E2%80%93Insufficient-Authentication%26Authorization.md" },
   { id: "MCP08", title: "Lack of Audit and Telemetry", boundary: "server", affected: "Host/client/server/downstream audit trail", impact: "Abuse and policy failures cannot be attributed, investigated, or reliably detected.", insecure: `await tools.deleteCustomer(args.id);
 return { content: [{ type: "text", text: "Done" }] };`, secure: `await audit.record({
   requestId, principalId, tenantId,
@@ -306,12 +352,12 @@ return { content: [{ type: "text", text: "Done" }] };`, secure: `await audit.rec
 registerService({
   owner, version, auth: "required"
 });`, control: "Maintain discovery/inventory, approved catalogs, network policy, ownership, configuration baselines, and attestations.", verify: "Scan expected networks and developer environments; every reachable MCP endpoint must map to an owner and approved record.", source: "MCP09-2025%E2%80%93Shadow-MCP-Servers.md" },
-  { id: "MCP10", title: "Context Injection & Over-Sharing", boundary: "context", affected: "Tool output/session ↔ model context", impact: "Sensitive or cross-tenant data can influence later responses and leak to an unauthorized principal.", insecure: `let sharedContext;
+  { id: "MCP10", title: "Context Injection & Over-Sharing", boundary: "context", affected: "Tool output/application state ↔ model context", impact: "Sensitive or cross-tenant data can influence later responses and leak to an unauthorized principal.", insecure: `let sharedContext;
 sharedContext = await db.customers.findMany();
-sessions.set(sessionId, sharedContext);`, secure: `const context = await loadAllowedFields({
-  principalId, tenantId, sessionId
+conversations.set(conversationId, sharedContext);`, secure: `const context = await loadAllowedFields({
+  principalId, tenantId, conversationId
 });
-sessionStore.set(scopedKey, context, { ttl });`, control: "Minimize fields, isolate context by principal/tenant/session, label provenance, filter sensitive data, and expire state.", verify: "Switch users, tenants, and sessions after loading sensitive context; prior data must be inaccessible and absent from prompts.", source: "MCP10-2025%E2%80%93ContextInjection%26OverSharing.md" }
+contextStore.set(scopedKey, context, { ttl });`, control: "Minimize fields, isolate application context by principal, tenant, and conversation; label provenance, filter sensitive data, and expire state.", verify: "Switch users, tenants, and conversations after loading sensitive context; prior data must be inaccessible and absent from prompts.", source: "MCP10-2025%E2%80%93ContextInjection%26OverSharing.md" }
 ];
 
 function onboardingExamples() {
@@ -339,26 +385,23 @@ function onboardingExamples() {
       }
     },
     remote: {
-      title: legacy ? "Legacy remote HTTP + SSE server" : "Remote Streamable HTTP server",
+      title: legacy ? "Legacy initialization-based HTTP server" : "Current Streamable HTTP server",
       note: legacy
-        ? "Illustrative legacy adapter configuration. MCP 2024-11-05 uses separate SSE and message endpoints; host schemas vary."
-        : "Illustrative modern remote configuration. MCP 2025-06-18 uses one Streamable HTTP endpoint; host schemas vary.",
+        ? "Illustrative 2025-06-18 configuration. This version uses initialization and may use protocol sessions; host schemas vary."
+        : "Illustrative current configuration. MCP 2026-07-28 uses stateless POST requests to one endpoint; host schemas vary.",
       format: "json",
       value: {
         servers: {
           inventory: {
-            type: legacy ? "http-sse" : "streamable-http",
-            ...(legacy
-              ? { sseUrl: "https://inventory.example.com/sse", messageUrl: "https://inventory.example.com/messages" }
-              : { url: "https://inventory.example.com/mcp" }),
+            type: "streamable-http",
+            url: "https://inventory.example.com/mcp",
             auth: {
               type: "entra",
               tokenProvider: "work-account",
               authority: `https://login.microsoftonline.com/${exampleTenantId}`,
               resource: mcpResource,
-              scopes: [`${mcpAudience}/mcp.tools.read`]
+              scopes: ["mcp.tools.read"]
             },
-            allowedOrigins: ["https://inventory.example.com"],
             timeoutMs: 30000,
             enabled: true,
             approval: { tools: "always" },
@@ -374,20 +417,17 @@ function onboardingExamples() {
       value: `const tokenProvider = async () => {
   // MSAL delegated flow, managed identity, workload
   // identity federation, or certificate credential.
-  return entra.acquireToken({
+  const result = await entra.acquireToken({
     authority: "https://login.microsoftonline.com/${exampleTenantId}",
     resource: "${mcpResource}",
-    scopes: ["${mcpAudience}/mcp.tools.read"]
+    scopes: ["mcp.tools.read"]
   });
+  return result.accessToken;
 };
 
 const client = new McpClient({
   protocolVersion: "${version.value}",
-  transport: ${legacy
-    ? `{ type: "http-sse",
-      sseUrl: "https://inventory.example.com/sse",
-      messageUrl: "https://inventory.example.com/messages" }`
-    : `{ type: "streamable-http",
+  transport: ${`{ type: "streamable-http",
       url: "https://inventory.example.com/mcp" }`},
   authorization: async () =>
     "Bearer " + await tokenProvider(),
@@ -396,9 +436,11 @@ const client = new McpClient({
 });
 
 // The transport invokes authorization() for every HTTP request.
-// initialize and tools/call contain JSON-RPC only—never tokens.
+// Tokens never enter JSON-RPC params or _meta.
 await client.connect();
-await client.initialize();
+${legacy
+    ? "await client.initialize();"
+    : "await client.discover(); // server/discover; each request includes required _meta"}
 await reviewCapabilitiesAndTools(client);`
     }
   };
@@ -406,9 +448,9 @@ await reviewCapabilitiesAndTools(client);`
 
 const roleNotes = {
   host: ["Host / App", "Owns user experience, model orchestration, consent, MSAL integration, and which MCP clients are created."],
-  client: ["MCP Client", "Maintains one protocol session, repeats the access token on every HTTP request, negotiates capabilities, and correlates ids."],
-  transport: ["Transport", "Modern Streamable HTTP uses one endpoint; legacy HTTP+SSE uses separate SSE and POST endpoints. Authorization remains outside JSON-RPC."],
-  server: ["MCP Server", "Acts as the OAuth resource server, validates each request, binds the principal to session state, enforces policy, and exposes tools."],
+  client: ["MCP Client", "Connects one host to one server, supplies per-request _meta, repeats access tokens on protected HTTP requests, and correlates ids."],
+  transport: ["Transport", "Current Streamable HTTP uses stateless POST requests and optional request-scoped SSE. stdio uses newline-delimited messages. Authorization remains outside JSON-RPC."],
+  server: ["MCP Server", "Exposes focused tools, resources, and prompts; as an OAuth resource server it validates each protected request and enforces policy."],
   identity: ["Microsoft Entra ID", "Authenticates users or workloads and issues audience-bound tokens. It does not replace resource-server authorization."],
   data: ["Data / Tools", "Downstream systems enforce their own ACLs. Use OBO or a separate app token; never pass the inbound MCP token through."]
 };
@@ -435,8 +477,10 @@ function highlightJson(object) {
 function protocolPayload(step, tab) {
   if (state.protocol === "legacy" && step[`legacy${tab[0].toUpperCase()}${tab.slice(1)}`]) return step[`legacy${tab[0].toUpperCase()}${tab.slice(1)}`];
   const payload = structuredClone(step[tab]);
-  if (step.short === "Handshake") {
-    payload[tab === "request" ? "params" : "result"].protocolVersion = versions[state.protocol].value;
+  if (state.protocol === "legacy") {
+    if (payload?.params?._meta) delete payload.params._meta;
+    if (payload?.result?.resultType) delete payload.result.resultType;
+    if (payload?.result?._meta?.["io.modelcontextprotocol/serverInfo"]) delete payload.result._meta;
   }
   return payload;
 }

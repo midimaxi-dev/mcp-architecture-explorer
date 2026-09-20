@@ -37,14 +37,14 @@
     <section class="hero" aria-labelledby="hero-title">
       <div class="eyebrow"><span class="pulse"></span> Interactive protocol walkthrough</div>
       <h1 id="hero-title">Follow one MCP request<br><span>from identity to result.</span></h1>
-      <p class="hero-copy">See where protocol, transport, Microsoft Entra ID, authorization, and security responsibilities begin and end—then inspect the wire at every stage.</p>
+      <p class="hero-copy">MCP standardizes how AI hosts discover and call server-provided tools, resources, and prompts. See where protocol, transport, identity, authorization, and application policy begin and end.</p>
       <div class="hero-actions">
         <a class="primary-button" href="#explorer">Explore the lifecycle <span aria-hidden="true">↓</span></a>
         <span class="offline-badge">Zero dependencies · Works offline</span>
       </div>
       <div class="hero-metrics" aria-label="Protocol highlights">
         <div><strong>JSON-RPC 2.0</strong><span>Message envelope</span></div>
-        <div><strong id="heroProtocol">MCP 2025-06-18</strong><span>Selected protocol version</span></div>
+        <div><strong id="heroProtocol">MCP 2026-07-28</strong><span>Explorer protocol version</span></div>
         <div><strong>Entra protected</strong><span>Tokens stay outside JSON-RPC</span></div>
       </div>
     </section>
@@ -52,7 +52,7 @@
     <section class="overview section-shell" id="overview" aria-labelledby="overview-title">
       <div class="section-heading">
         <div><span class="kicker">Protocol overview</span><h2 id="overview-title">Primitives flow in both directions.</h2></div>
-        <p>MCP 2025-06-18 defines three server primitives and three client-offered features. Capabilities negotiated during initialization determine which exchanges are available; support is never implied.</p>
+        <p>MCP 2026-07-28 defines three core server primitives. Current requests declare protocol version and client capabilities in <code>params._meta</code>; servers advertise their capabilities with <code>server/discover</code>.</p>
       </div>
 
       <div class="primitive-group-heading">
@@ -93,14 +93,14 @@
       </div>
 
       <div class="primitive-group-heading primitive-client-heading">
-        <div><span class="primitive-direction" aria-hidden="true">C ← S</span><div><h3>Client-offered features</h3><p>The client advertises these capabilities; a server can then request host, model, filesystem, or user assistance.</p></div></div>
-        <span class="primitive-count">2025-06-18</span>
+        <div><span class="primitive-direction" aria-hidden="true">C ← S</span><div><h3>Client-offered input</h3><p>The client declares supported input capabilities on every request. Current servers request that input through a multi round-trip result rather than initiating a new request.</p></div></div>
+        <span class="primitive-count">2026-07-28</span>
       </div>
       <div class="primitive-grid">
         <article class="primitive-card primitive-sampling">
           <div class="primitive-topline"><span class="primitive-icon" aria-hidden="true">S</span><span class="primitive-status">Deprecated · 2026-07-28</span></div>
           <h3>Sampling</h3>
-          <p>In 2025-06-18, Sampling let a server request an LLM generation through the client without owning model credentials. It is deprecated in 2026-07-28; new servers should integrate directly with an LLM provider. Clients should still gate legacy requests and let users review prompts and results.</p>
+          <p>Sampling let a server ask the client to run an LLM generation without owning model credentials. It is deprecated in 2026-07-28; new servers should integrate directly with a model provider. Compatible clients should still gate legacy sampling and let users review prompts and results.</p>
           <div class="primitive-example">
             <span class="mini-label">Legacy example · summarize tool results</span>
             <code><span>sampling/createMessage</span> → "Summarize these stock changes"</code>
@@ -110,7 +110,7 @@
         <article class="primitive-card primitive-roots">
           <div class="primitive-topline"><span class="primitive-icon" aria-hidden="true">R</span><span class="primitive-status">Deprecated · 2026-07-28</span></div>
           <h3>Roots</h3>
-          <p>In 2025-06-18, Roots let a client tell a server which filesystem locations were relevant to the workspace. They never granted access or replaced filesystem permissions. Roots are deprecated in 2026-07-28; new designs should pass files or directories through tool arguments, resource URIs, or server configuration.</p>
+          <p>Roots let a client suggest relevant filesystem locations. They never granted access or replaced operating-system permissions. Roots are deprecated in 2026-07-28; current designs should pass files or directories through tool arguments, resource URIs, or server configuration.</p>
           <div class="primitive-example">
             <span class="mini-label">Legacy example · expose a workspace boundary</span>
             <code><span>roots/list</span> → file:///workspaces/inventory-app</code>
@@ -120,26 +120,30 @@
         <article class="primitive-card primitive-elicitation">
           <div class="primitive-topline"><span class="primitive-icon" aria-hidden="true">E</span><span class="primitive-control">User-controlled</span></div>
           <h3>Elicitation</h3>
-          <p>Lets a server request additional, structured information during a workflow. The client renders the request and the user may accept, decline, or cancel. In this protocol version, servers must not request sensitive information this way.</p>
+          <p>Lets a server request user input while handling a prompt, resource read, or tool call. Current MCP returns <code>input_required</code>; the client collects input and retries. Form mode excludes secrets, while URL mode supports sensitive out-of-band interactions.</p>
           <div class="primitive-example">
             <span class="mini-label">Example · confirm a missing field</span>
-            <code><span>elicitation/create</span> → { message: "Choose a warehouse" }</code>
+            <code><span>resultType: "input_required"</span> → elicitation/create</code>
           </div>
-          <p class="primitive-methods"><strong>Capability:</strong> <code>elicitation</code> <strong>Added:</strong> 2025-06-18</p>
+          <p class="primitive-methods"><strong>Capability:</strong> <code>elicitation</code> <strong>Pattern:</strong> MRTR</p>
         </article>
       </div>
 
       <aside class="primitive-boundary">
         <div><span class="mini-label">Taxonomy matters</span><strong>Related protocol machinery is not another primitive.</strong></div>
-        <p>Capabilities advertise support; notifications report changes; completion suggests prompt or resource arguments; progress, cancellation, pagination, transport, and authorization support the exchanges. They do not create additional context primitives. The 2025 Logging utility is also deprecated in 2026-07-28; use <code>stderr</code> for stdio or OpenTelemetry instead.</p>
+        <p>Capabilities, <code>_meta</code>, notifications, subscriptions, completion, progress, cancellation, pagination, transport, and authorization support exchanges; they are not additional context primitives. Logging is deprecated in 2026-07-28; use <code>stderr</code> for stdio or OpenTelemetry instead.</p>
       </aside>
-      <p class="primitive-sources">Official MCP sources: <a href="https://modelcontextprotocol.io/specification/2025-06-18" target="_blank" rel="noreferrer">2025-06-18 overview</a>, <a href="https://modelcontextprotocol.io/specification/2025-06-18/server" target="_blank" rel="noreferrer">server primitives</a>, <a href="https://modelcontextprotocol.io/specification/2025-06-18/client/sampling" target="_blank" rel="noreferrer">sampling</a>, <a href="https://modelcontextprotocol.io/specification/2025-06-18/client/roots" target="_blank" rel="noreferrer">roots</a>, <a href="https://modelcontextprotocol.io/specification/2025-06-18/client/elicitation" target="_blank" rel="noreferrer">elicitation</a>, and the <a href="https://modelcontextprotocol.io/specification/2026-07-28/deprecated" target="_blank" rel="noreferrer">2026-07-28 deprecation registry</a>.</p>
+      <aside class="primitive-boundary">
+        <div><span class="mini-label">Current request envelope</span><strong><code>params._meta</code> is required in 2026-07-28.</strong></div>
+        <p>Each request supplies <code>io.modelcontextprotocol/protocolVersion</code> and <code>io.modelcontextprotocol/clientCapabilities</code>. Namespaced metadata can also carry client identity, progress, tracing, and subscription correlation—but never bearer tokens or trusted authorization claims.</p>
+      </aside>
+      <p class="primitive-sources">Official MCP sources: <a href="https://modelcontextprotocol.io/specification/2026-07-28" target="_blank" rel="noreferrer">2026-07-28 overview</a>, <a href="https://modelcontextprotocol.io/specification/2026-07-28/server" target="_blank" rel="noreferrer">server primitives</a>, <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic" target="_blank" rel="noreferrer">base protocol and <code>_meta</code></a>, <a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/patterns/mrtr" target="_blank" rel="noreferrer">MRTR</a>, and the <a href="https://modelcontextprotocol.io/specification/2026-07-28/deprecated" target="_blank" rel="noreferrer">deprecation registry</a>.</p>
     </section>
 
     <section class="onboard section-shell" id="onboard" aria-labelledby="onboard-title">
       <div class="section-heading">
         <div><span class="kicker">Operational guide</span><h2 id="onboard-title">Onboard an MCP server.</h2></div>
-        <p>MCP does not define one universal installation manifest. Configuration shape and location are host-specific; initialization, capability negotiation, JSON-RPC, and transport behavior are protocol-standard.</p>
+        <p>MCP does not define one universal installation manifest. Configuration shape and location are host-specific; JSON-RPC methods, per-request metadata, discovery, message patterns, and transport behavior are protocol-standard.</p>
       </div>
 
       <ol class="onboard-sequence" aria-label="MCP server onboarding sequence">
@@ -147,14 +151,14 @@
         <li><span>02</span><strong>Select transport</strong><small>Local stdio or protected remote HTTP.</small></li>
         <li><span>03</span><strong>Configure</strong><small>Set a pinned command and args, or an allowlisted URL.</small></li>
         <li><span>04</span><strong>Add identity</strong><small>Reference Entra scopes and a token provider—not a token.</small></li>
-        <li><span>05</span><strong>Initialize</strong><small>Negotiate the selected version and review capabilities/tools.</small></li>
+        <li><span>05</span><strong>Discover</strong><small>Call <code>server/discover</code>, select a version, and review capabilities/tools.</small></li>
         <li><span>06</span><strong>Constrain</strong><small>Apply approvals, least privilege, schemas, and policy.</small></li>
         <li><span>07</span><strong>Operate</strong><small>Monitor, update deliberately, disable, and remove cleanly.</small></li>
       </ol>
 
       <div class="manifest-boundary">
         <div><span class="mini-label">Host-specific</span><strong>Installation / connection configuration</strong><p>File names such as <code>mcp.json</code>, settings keys, storage locations, secret references, and approval controls differ across Copilot, VS Code, Claude, and custom hosts.</p></div>
-        <div><span class="mini-label">Protocol-standard</span><strong>MCP session behavior</strong><p><code>initialize</code>, <code>protocolVersion</code>, capability negotiation, JSON-RPC methods, and the selected stdio or HTTP transport semantics are interoperable MCP concerns.</p></div>
+        <div><span class="mini-label">Protocol-standard</span><strong>MCP request behavior</strong><p><code>server/discover</code>, required per-request <code>_meta</code>, JSON-RPC methods, message patterns, and stdio or HTTP transport semantics are interoperable MCP concerns.</p></div>
       </div>
 
       <div class="example-workbench">
@@ -165,7 +169,7 @@
         </div>
         <div class="example-context">
           <div><span class="mini-label">Illustrative host config</span><strong id="onboardExampleTitle">Local stdio server</strong></div>
-          <span id="onboardVersionBadge">MCP 2025-06-18</span>
+          <span id="onboardVersionBadge">MCP 2026-07-28</span>
         </div>
         <p class="example-disclaimer" id="onboardExampleNote">Generic example only—the exact schema and file location differ by host.</p>
         <pre id="onboardExamplePanel" role="tabpanel" aria-labelledby="localExampleTab" tabindex="0"><code id="onboardExampleCode"></code></pre>
@@ -181,7 +185,7 @@
           <div><dt><code>auth</code>, <code>tokenProvider</code>, <code>scopes</code></dt><dd>Host-specific instructions for acquiring an audience-bound token; never an inline access token.</dd></div>
           <div><dt><code>timeout</code></dt><dd>Launch, connection, and request limits that bound stalled or hostile servers.</dd></div>
           <div><dt><code>enabled</code> / approval policy</dt><dd>Administrative and per-tool controls for activation and sensitive actions.</dd></div>
-          <div><dt><code>version</code> / capabilities</dt><dd>Requested MCP version and host policy constraints; actual support is negotiated with <code>initialize</code>.</dd></div>
+          <div><dt><code>version</code> / capabilities</dt><dd>Requested MCP version and host policy constraints; current servers advertise support with <code>server/discover</code>, and clients repeat version/capabilities in <code>params._meta</code>.</dd></div>
         </dl>
       </div>
 
@@ -192,7 +196,7 @@
           <li>Treat <code>env</code> entries as references to a secret store or inherited variables, never raw credentials.</li>
           <li>Allowlist remote origins, Entra authorities, and exact redirect URIs; require HTTPS.</li>
           <li>Treat server instructions, tool descriptions, schemas, and returned content as untrusted input.</li>
-          <li>Keep credentials in the transport/token-provider layer—never in MCP JSON-RPC, tool arguments, or session state.</li>
+          <li>Keep credentials in the transport/token-provider layer—never in MCP JSON-RPC, <code>_meta</code>, tool arguments, or persistent application state.</li>
         </ul>
       </div>
     </section>
@@ -200,18 +204,18 @@
     <section class="architecture section-shell" id="architecture" aria-labelledby="architecture-title">
       <div class="section-heading">
         <div><span class="kicker">System map</span><h2 id="architecture-title">Six roles, three layers</h2></div>
-        <p>MCP standardizes context exchange. It does not replace your application, identity provider, resource-server policy, or downstream authorization.</p>
+        <p>MCP standardizes JSON-RPC exchanges between a host-managed client and one server. It is not an agent framework, model API, security sandbox, identity provider, or authorization policy.</p>
       </div>
       <div class="layer-stack" id="layerStack">
         <div class="layer layer-control" data-layer="control">
           <div class="layer-label"><span>01</span><strong>Control / architecture</strong><small>Who decides and orchestrates</small></div>
           <button class="node" data-role="host" type="button"><span class="node-icon">H</span><span><strong>Host / App</strong><small>AI product & UX</small></span></button>
           <div class="flow-arrow" aria-hidden="true"><span></span><b>intent</b></div>
-          <button class="node" data-role="client" type="button"><span class="node-icon">C</span><span><strong>MCP Client</strong><small>One session per server</small></span></button>
+          <button class="node" data-role="client" type="button"><span class="node-icon">C</span><span><strong>MCP Client</strong><small>One client per server</small></span></button>
         </div>
         <div class="layer layer-transport" data-layer="transport">
           <div class="layer-label"><span>02</span><strong>Transport</strong><small>How protected messages move</small></div>
-          <button class="node wide" data-role="transport" type="button"><span class="node-icon">↔</span><span><strong id="transportNodeTitle">Streamable HTTP</strong><small id="transportNodeSubtitle">Single /mcp endpoint</small></span><span class="node-chip" id="transportChip">2025</span></button>
+          <button class="node wide" data-role="transport" type="button"><span class="node-icon">↔</span><span><strong id="transportNodeTitle">Streamable HTTP</strong><small id="transportNodeSubtitle">Stateless POST /mcp</small></span><span class="node-chip" id="transportChip">2026</span></button>
         </div>
         <div class="layer layer-data" data-layer="data">
           <div class="layer-label"><span>03</span><strong>Service / data</strong><small>Where policy and work happen</small></div>
@@ -235,8 +239,8 @@
             <button type="button" data-transport="stdio" aria-pressed="false">stdio</button>
           </div>
           <div class="segmented protocol-picker" role="group" aria-label="MCP protocol version">
-            <button type="button" data-protocol="modern" aria-pressed="true"><span>2025-06-18</span><small>Modern</small></button>
-            <button type="button" data-protocol="legacy" aria-pressed="false"><span>2024-11-05</span><small>Legacy</small></button>
+            <button type="button" data-protocol="modern" aria-pressed="true"><span>2026-07-28</span><small>Current</small></button>
+            <button type="button" data-protocol="legacy" aria-pressed="false"><span>2025-06-18</span><small>Legacy init</small></button>
           </div>
           <div class="segmented" role="group" aria-label="Detail level">
             <button type="button" data-mode="compact" aria-pressed="true">Compact</button>
@@ -250,7 +254,7 @@
         <span><i class="legend-dot response"></i>Response</span>
         <span><i class="legend-dot notification"></i>Notification</span>
         <span><i class="legend-dot policy"></i>Policy boundary</span>
-        <span class="legend-note" id="transportSummary">2025-06-18: one /mcp endpoint accepts POST and GET; SSE is optional.</span>
+        <span class="legend-note" id="transportSummary">2026-07-28: stateless POST requests; request-scoped SSE is optional.</span>
       </div>
 
       <div class="explorer-grid">
@@ -278,7 +282,7 @@
           </div>
           <div class="step-nav">
             <button id="prevStep" type="button">← Previous</button>
-            <span id="stepCounter">1 / 12</span>
+            <span id="stepCounter">1 / 13</span>
             <button id="nextStep" type="button">Next →</button>
           </div>
         </article>
@@ -288,7 +292,7 @@
     <section class="identity section-shell" id="identity" aria-labelledby="identity-title">
       <div class="section-heading">
         <div><span class="kicker">Microsoft Entra ID</span><h2 id="identity-title">Two callers. One strict resource boundary.</h2></div>
-        <p>Use delegated identity for a signed-in user and application identity for a confidential service. Validate before MCP processing begins.</p>
+        <p>Authorization is optional in MCP and applies to HTTP transports. When Entra protects a remote server, use delegated identity for a signed-in user or application identity for a confidential service, and validate before MCP dispatch.</p>
       </div>
       <div class="identity-grid">
         <article class="concept-card authn-card">
@@ -308,14 +312,14 @@
         <li><span>02</span><div><strong>Acquire</strong><small>MSAL + PKCE for users; managed/workload identity, certificate, or credentials for apps.</small></div></li>
         <li><span>03</span><div><strong>Present</strong><small><code>Authorization</code> carries a bearer access token on every Streamable HTTP request.</small></div></li>
         <li><span>04</span><div><strong>Validate</strong><small>Verify signature, issuer, audience, tenant, lifetime, then <code>scp</code> or <code>roles</code>.</small></div></li>
-        <li><span>05</span><div><strong>Bind</strong><small>Bind the validated principal to the MCP session; reject identity changes for that session.</small></div></li>
+        <li><span>05</span><div><strong>Authorize</strong><small>Derive the principal for each request and enforce scopes, roles, tenant, tool, and resource policy.</small></div></li>
         <li><span>06</span><div><strong>Delegate safely</strong><small>For downstream APIs, use OBO when user context is required—never pass the MCP token through.</small></div></li>
       </ol>
       <div class="status-grid">
         <div><strong>401 Unauthorized</strong><span>Token missing, malformed, expired, wrong issuer/audience/tenant, or invalid signature. Include an appropriate <code>WWW-Authenticate</code> challenge.</span></div>
         <div><strong>403 Forbidden</strong><span>Token is valid, but the required delegated scope (<code>scp</code>) or application permission (<code>roles</code>) is absent.</span></div>
       </div>
-      <div class="callout"><strong>Hard boundary:</strong> Tokens are HTTP authorization material. They are not synchronized into JSON-RPC messages, MCP session state, tool arguments, model context, or logs. A <code>tools/call</code> names an operation—it does not grant permission.</div>
+      <div class="callout"><strong>Hard boundary:</strong> Tokens are HTTP authorization material. They never belong in JSON-RPC params, <code>_meta</code>, tool arguments, model context, or logs. A <code>tools/call</code> names an operation—it does not grant permission.</div>
     </section>
 
     <section class="risks section-shell" id="risks" aria-labelledby="risks-title">
@@ -328,7 +332,7 @@
         <div><span class="concept-number">02</span><strong>Trace authority and data</strong><p>Ask what the caller can access, what the model can influence, and which downstream side effects are possible.</p></div>
         <div><span class="concept-number">03</span><strong>Verify the control</strong><p>Test the denied path—not only the happy path—and confirm the decision is visible without leaking secrets.</p></div>
       </div>
-      <p class="risk-reading-note"><strong>Secure does not mean risk-free.</strong> The safer examples reduce exposure through least privilege, explicit validation, isolation, and auditable decisions; they still require threat modeling for your deployment.</p>
+      <p class="risk-reading-note"><strong>Secure does not mean risk-free.</strong> The safer examples reduce exposure through least privilege, explicit validation, isolation, and auditable decisions; they still require threat modeling. Category names follow the <a href="https://owasp.org/www-project-mcp-top-10/" target="_blank" rel="noopener noreferrer">official OWASP MCP Top 10:2025 beta</a> snapshot and may change before final publication.</p>
       <div class="risk-toolbar">
         <div class="segmented" role="group" aria-label="Filter risks by boundary">
           <button type="button" data-risk-filter="all" aria-pressed="true">All</button>

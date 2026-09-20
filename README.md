@@ -1,6 +1,6 @@
 # MCP Flow Atlas
 
-A polished, dependency-free interactive guide to Model Context Protocol (MCP) architecture, Microsoft Entra ID authorization, protocol generations, and security boundaries.
+A polished, dependency-free interactive one-page guide to Model Context Protocol (MCP) purpose, architecture, primitives, current protocol behavior, Microsoft Entra ID authorization, and security boundaries.
 
 ## Run locally
 
@@ -16,15 +16,15 @@ Then visit [http://localhost:4173](http://localhost:4173).
 
 - Version-aligned overview of server primitives and client-offered features, with control models, methods, examples, and taxonomy boundaries
 - Interactive architecture map with control, transport, and data layers
-- Twelve selectable MCP lifecycle steps and realistic request/response examples
-- MCP 2025-06-18 Streamable HTTP and MCP 2024-11-05 legacy HTTP+SSE modes, plus stdio
-- Protocol-aware lifecycle copy, transport labels, wire metadata, and `initialize.protocolVersion`
+- Thirteen selectable MCP lifecycle steps and realistic request/response examples
+- Current MCP 2026-07-28 and legacy initialization-based MCP 2025-06-18 modes, plus stdio
+- Required per-request `params._meta`, `server/discover`, stateless request handling, MRTR, subscriptions, and legacy initialization comparisons
 - Compact and expert detail modes
 - Request/response payload tabs with copy support
 - Microsoft Entra ID protected-resource discovery and MSAL Authorization Code + PKCE guidance
 - Confidential application patterns for managed identity, workload identity federation, certificates, and client credentials
-- JWT validation, `scp` versus `roles`, principal-to-session binding, 401/403 behavior, and downstream OBO guidance
-- Explicit token boundary: authorization tokens never enter JSON-RPC, MCP session state, tool arguments, or model context
+- JWT validation, `scp` versus `roles`, per-request principal authorization, 401/403 behavior, and downstream OBO guidance
+- Explicit token boundary: authorization tokens never enter JSON-RPC, `_meta`, tool arguments, application state, or model context
 - Protocol-aware “Onboard an MCP server” guide with a trust-to-operations sequence, host-specific manifest boundary, selectable stdio/HTTP/harness examples, field glossary, and configuration warnings
 - Interactive OWASP MCP Top 10 2025 beta register with a review method, boundary filters, insecure/secure comparisons, impact, controls, verification checks, and official sources
 - Responsive, keyboard-accessible, theme-aware interface that works offline
