@@ -51,10 +51,10 @@ const lifecycle = [
     route: ["Client", "Browser", "Entra ID"],
     guarantee: "The modern authorization profile requires PKCE and resource-bound access tokens.",
     ownership: "MSAL configuration, exact redirect URIs, state/nonce checks, consent UX, cache protection, and silent renewal.",
-    expert: "Use acquireTokenSilent first, then an interactive MSAL flow when required. Request the MCP API scope and resource; never expose a client secret in a browser or native public client.",
+    expert: "Use acquireTokenSilent first, then an interactive MSAL flow when required. MSAL prompt: \"select_account\" is an optional Entra /authorize account-picker hint, not an MCP prompt or token request field. Request the MCP API scope and resource; never expose a client secret in a browser or native public client.",
     request: { msal: "acquireTokenRedirect", authority: "https://login.microsoftonline.com/tenant-north", scopes: ["api://inventory-mcp/mcp.tools.read", "api://inventory-mcp/inventory.read"], pkce: "S256", prompt: "select_account" },
     response: { token_type: "Bearer", audience: "api://inventory-mcp", delegated_claim: "scp", scopes: "mcp.tools.read inventory.read", lifetime: "short-lived", storage: "secure client token cache only" },
-    http: { request: ["browser → Entra /authorize", "code_challenge_method=S256"], response: ["client → Entra /token", "code_verifier + authorization code"] },
+    http: { request: ["browser → Entra /authorize", "code_challenge_method=S256", "prompt=select_account is optional; omit when silent/SSO account reuse is preferred"], response: ["client → Entra /token", "code_verifier + authorization code", "prompt is not sent to /token"] },
     stdio: { request: ["not an MCP stdio exchange"], response: ["credentials should come from the host environment when needed"] }
   },
   {
